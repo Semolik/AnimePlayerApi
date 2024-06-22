@@ -1,0 +1,32 @@
+version: '3.8'
+services:
+  app:
+    container_name: app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8000:8000
+    env_file:
+      - .env
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+  database:
+    image: library/postgres:alpine
+    container_name: database
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: async_sqlalchemy
+
+    healthcheck:
+      test: pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+      interval: 5s
+      timeout: 5s
+      retries: 5
