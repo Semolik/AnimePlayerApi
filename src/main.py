@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
+from src.redis.containers import Container
 from src.api.api_v1.api import api_router
 from src.core.config import settings
 from src.db.init import init_superuser

@@ -142,3 +142,4 @@ cython_debug/
 # IDE
 .vscode
 .idea
+/db-data
