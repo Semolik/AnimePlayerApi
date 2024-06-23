@@ -82,7 +82,7 @@ async def get_genre(genre_website_id: str, page: int) -> list[ParsedTitleShort]:
                     id_on_website=get_id_from_url(a['href']),
                     name=get_original_title(name),
                     additional_info=series_from_title(name),
-                    image_url=title.select_one('img')['src']
+                    image_url=WEBSITE_URL+title.select_one('img')['src']
                 ))
             return result
 
