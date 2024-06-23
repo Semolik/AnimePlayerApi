@@ -1,7 +1,6 @@
 import json
 from aioredis import Redis
 
-
 class ParserInfoService:
     def __init__(self, redis: Redis) -> None:
         self._redis = redis

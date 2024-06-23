@@ -10,7 +10,7 @@ class Title(Base):
     __tablename__ = "titles"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    id_on_website = Column(String, nullable=False)
+    id_on_website = Column(String, nullable=False, unique=True)
     parser_id = Column(String, nullable=False)
     name = Column(String, nullable=False)
     page_fetched = Column(Boolean, default=False)
