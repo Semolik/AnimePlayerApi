@@ -2,7 +2,7 @@ from typing import List
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID, SQLAlchemyBaseOAuthAccountTableUUID
 from src.db.base import Base
 from sqlalchemy import UUID, Boolean, Column, String, DateTime, func, ForeignKey
-from sqlalchemy.orm import Mapped, relationship, declared_attr,mapped_column
+from sqlalchemy.orm import Mapped, relationship, declared_attr, mapped_column
 
 
 class OAuthAccount(SQLAlchemyBaseOAuthAccountTableUUID, Base):
@@ -10,6 +10,7 @@ class OAuthAccount(SQLAlchemyBaseOAuthAccountTableUUID, Base):
     @declared_attr
     def user_id(cls):
         return mapped_column(UUID, ForeignKey("users.id", ondelete="cascade"), nullable=False)
+
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
     __tablename__ = "users"

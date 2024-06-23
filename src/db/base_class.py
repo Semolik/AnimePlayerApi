@@ -26,4 +26,5 @@ class BaseModel(Base):
         unique=True,
     )
     created_at: int = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at: int = Column(DateTime, nullable=True, default=None, onupdate=datetime.utcnow)
+    updated_at: int = Column(DateTime, nullable=True,
+                             default=None, onupdate=datetime.utcnow)

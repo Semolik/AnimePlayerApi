@@ -4,7 +4,8 @@ from httpx_oauth.clients.google import GoogleOAuth2
 from fastapi import APIRouter
 from src.core.config import settings
 
-google_oauth_client = GoogleOAuth2(settings.GOOGLE_CLIENT_ID, settings.GOOGLE_CLIENT_SECRET)
+google_oauth_client = GoogleOAuth2(
+    settings.GOOGLE_CLIENT_ID, settings.GOOGLE_CLIENT_SECRET)
 oauth_router = APIRouter()
 oauth_router.include_router(
     fastapi_users.get_oauth_router(
@@ -16,6 +17,7 @@ oauth_router.include_router(
     prefix="/google",
 )
 oauth_router.include_router(
-    fastapi_users.get_oauth_associate_router(google_oauth_client, UserRead, "SECRET"),
+    fastapi_users.get_oauth_associate_router(
+        google_oauth_client, UserRead, "SECRET"),
     prefix="/associate/google",
 )

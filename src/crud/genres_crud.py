@@ -4,6 +4,7 @@ from src.crud.base import BaseCRUD
 from src.models.parsers import Genre
 from src.schemas.parsers import ParsedGenre
 
+
 class GenresCrud(BaseCRUD):
 
     async def get_genre_by_website_id(self, website_id: str) -> Genre:
@@ -15,14 +16,13 @@ class GenresCrud(BaseCRUD):
             id_on_website=genre.id_on_website,
             parser_id=parser_id,
             name=genre.name,
-            description=genre.description,
         )
         return await self.create(genre)
 
     async def get_genres_by_website_ids(self, website_ids: list[str]) -> list[Genre]:
         query = select(Genre).where(Genre.id_on_website.in_(website_ids))
         return (await self.db.execute(query)).scalars().all()
-    
+
     async def get_genre_by_id(self, genre_id: UUID) -> Genre:
         query = select(Genre).where(Genre.id == genre_id)
         return (await self.db.execute(query)).scalar()

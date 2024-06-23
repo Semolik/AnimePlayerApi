@@ -8,12 +8,14 @@ from src.core.config import settings
 from src.db.init import init_superuser
 from src.db.session import create_db_and_tables
 
-app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json")
+app = FastAPI(title=settings.PROJECT_NAME,
+              openapi_url=f"{settings.API_V1_STR}/openapi.json")
 
 if settings.BACKEND_CORS_ORIGINS:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+        allow_origins=[str(origin)
+                       for origin in settings.BACKEND_CORS_ORIGINS],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -23,6 +25,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 
 main_app_lifespan = app.router.lifespan_context
+
 
 @asynccontextmanager
 async def lifespan_wrapper(app):

@@ -29,4 +29,3 @@ class UserCreate(BaseUserCreate, CustomUserFields):
 
 class UserUpdate(BaseUserUpdate, CustomUserFields):
     pass
-

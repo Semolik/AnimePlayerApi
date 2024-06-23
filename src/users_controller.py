@@ -35,7 +35,6 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         if not user.is_verified:
             await self.request_verify(user=user, request=request)
 
-
     async def on_after_forgot_password(
         self, user: User, token: str, request: Optional[Request] = None
     ):
