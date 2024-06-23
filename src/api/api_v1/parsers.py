@@ -1,9 +1,31 @@
-from fastapi import APIRouter
-from  src.parsers import animevost
+from typing import Literal
+from uuid import UUID
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from src.db.session import get_async_session, AsyncSession
+from src.schemas.parsers import Title
+from src.parsers import animevost
 
 api_router = APIRouter(prefix="/parsers")
 
 parsers = [animevost.parser]
+parsers_dict = {parser.parser_id: parser for parser in parsers}
+ParserId = Literal[tuple([parser.parser_id for parser in parsers])] # type: ignore
 
-for parser in parsers:
-    api_router.include_router(parser.router)
+
+@api_router.get("/{parser_id}/titles", response_model=list[Title])
+async def get_titles(parser_id: ParserId, background_tasks: BackgroundTasks, page: int = Query(1, ge=1), db: AsyncSession = Depends(get_async_session)):
+    parser = parsers_dict[parser_id]
+    return await parser.get_titles(
+        page=page,
+        background_tasks=background_tasks,
+        db=db
+    )
+
+@api_router.get("/{parser_id}/titles/{title_id}", response_model=Title)
+async def get_title(parser_id: ParserId, background_tasks: BackgroundTasks, title_id: UUID, db: AsyncSession = Depends(get_async_session)):
+    parser = parsers_dict[parser_id]
+    return await parser.get_title(
+        title_id=title_id,
+        db=db,
+        background_tasks=background_tasks
+    )

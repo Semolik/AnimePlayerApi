@@ -2,29 +2,23 @@ import uuid
 from pydantic import BaseModel
 
 
-class ParsedTitleShortBase(BaseModel):
+class ParsedTitleShort(BaseModel):
     name: str
     image_url: str
     additional_info:str = None
-
-class ParsedTitleShortInt(ParsedTitleShortBase):
-    id_on_website: int
-
-class ParsedTitleShortStr(ParsedTitleShortBase):
     id_on_website: str
 
+class ParsedTitle(ParsedTitleShort):
+    description: str | None = None
+    series: str | None = None
 
 class Title(BaseModel):
     id: uuid.UUID
-    parser_id: str
     name: str
+    parser_id: str
     page_fetched: bool = False
-    description: str | None
     image_url: str
-    additional_info:str = None
+    additional_info: str = None
 
-class TitleIntId(Title):
-    id_on_website: int
-
-class TitleStrId(Title):
-    id_on_website: str
+    class Config:
+        from_attributes = True
