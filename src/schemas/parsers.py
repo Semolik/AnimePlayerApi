@@ -22,3 +22,17 @@ class Title(BaseModel):
 
     class Config:
         from_attributes = True
+
+class ParsedGenre(BaseModel):
+    name: str
+    id_on_website: str
+    description: str | None = None
+
+class Genre(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: str | None = None
+    parser_id: str
+
+    class Config:
+        from_attributes = True

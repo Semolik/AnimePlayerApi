@@ -1,10 +1,7 @@
 from typing import List
 from uuid import uuid4
 from src.db.base import Base
-from sqlalchemy import UUID, Boolean, Column, String, DateTime, func, ForeignKey
-from sqlalchemy.orm import Mapped, relationship, declared_attr,mapped_column
-
-
+from sqlalchemy import UUID, Boolean, Column, String, DateTime, func
 
 class Title(Base):
     __tablename__ = "titles"
@@ -26,3 +23,12 @@ class Title(Base):
     description = Column(String)
     image_url = Column(String)
     
+
+class Genre(Base):
+    __name__ = "genres"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id_on_website = Column(String, nullable=False, unique=True)
+    name = Column(String, nullable=False)
+    description = Column(String)
+    parser_id = Column(String, nullable=False)

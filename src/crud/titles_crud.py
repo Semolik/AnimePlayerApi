@@ -34,11 +34,14 @@ class TitlesCrud(BaseCRUD):
         query = select(Title).where(Title.id_on_website == website_id)
         return (await self.db.execute(query)).scalar()
 
-    async def update_title(self, db_title: Title, title: ParsedTitle) -> Title:
+    async def update_title(self, db_title: Title, title: ParsedTitle | ParsedTitleShort) -> Title:
         db_title.name = title.name
         db_title.image_url = title.image_url
-        db_title.description = title.description
         db_title.page_fetched = True
+        
+        if isinstance(title, ParsedTitle):
+            db_title.description = title.description
+            
         return await self.update(db_title)
     
     async def get_title_by_id(self, title_id: str) -> Title:
