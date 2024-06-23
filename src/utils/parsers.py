@@ -34,13 +34,13 @@ class Parser:
         self.functions = functions
     
     async def get_title(self, title_id: UUID, background_tasks: BackgroundTasks, db: AsyncSession, service: ParserInfoService = Depends(Provide[Container.service])):
-        is_expired = await service.expire_status(parser_id=self.parser_id)
-        cached_title = await service.get_title(parser_id=self.parser_id, title_id=title_id)
         existing_title = await TitlesCrud(db).get_title_by_id(title_id=title_id)
         if not existing_title:
             raise HTTPException(status_code=404, detail="Title not found.")
+        is_expired = await service.expire_status(parser_id=self.parser_id)
+        cached_title = await service.get_title(parser_id=self.parser_id, title_id=title_id)
         title_obj = ParsedTitleShort(**cached_title) if cached_title else await self.update_title(id_on_website=existing_title.id_on_website, service=service, raise_error=True, title_id=title_id)
-        if is_expired:
+        if is_expired and cached_title:
             background_tasks.add_task(self.update_title_in_db, existing_title.id_on_website, title_id, db, service)
         title_db_obj = Title.model_validate(existing_title)
         title_db_obj.additional_info = title_obj.additional_info

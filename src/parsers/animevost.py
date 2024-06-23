@@ -9,6 +9,8 @@ def series_from_title(name):
     second = first[1].split(" [")
     return second[1][:-1]
 
+def get_original_title(name):
+    return name.split(" /")[0]
 
 async def get_titles(page: int) -> list[ParsedTitleShort]:
     async with aiohttp.ClientSession() as session:
@@ -17,7 +19,7 @@ async def get_titles(page: int) -> list[ParsedTitleShort]:
             return [
                 ParsedTitleShort(
                     id_on_website=str(title['id']),
-                    name=title['title'].split(' /')[0],
+                    name=get_original_title(title['title']),
                     image_url=title['urlImagePreview'],
                     additional_info=series_from_title(title['title'])
                 )
@@ -25,7 +27,6 @@ async def get_titles(page: int) -> list[ParsedTitleShort]:
             ]
 
 async def get_title(title_id: str):
-    print(title_id)
     if not title_id.isdigit():
         raise HTTPException(status_code=404, detail="Title ID for animevost must be a number.")
     async with aiohttp.ClientSession() as session:
@@ -35,7 +36,7 @@ async def get_title(title_id: str):
             series = series_from_title(data['title'])
             return ParsedTitle(
                 id_on_website=title_id,
-                name=data['title'],
+                name=get_original_title(data['title']),
                 image_url=data['urlImagePreview'],
                 additional_info=series,
                 description=data['description'],
