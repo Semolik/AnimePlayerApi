@@ -45,7 +45,7 @@ class Parser:
         cached_title = await service.get_title(parser_id=self.parser_id, title_id=title_id)
         title_obj = ParsedTitleShort(**cached_title) if cached_title else await self.update_title(id_on_website=existing_title.id_on_website, service=service, raise_error=True, title_id=title_id)
         if is_expired and cached_title:
-            background_tasks.add_task(self.update_title_in_db, existing_title.id_on_website, title_id, db, service)
+            background_tasks.add_task(self.update_title_in_db, id_on_website=existing_title.id_on_website, title_id=title_id, db=db, service=service)
         title_db_obj = Title.model_validate(existing_title)
         title_db_obj.additional_info = title_obj.additional_info
         return title_db_obj
@@ -185,7 +185,7 @@ class Parser:
         is_expired = await service.expire_status(parser_id=self.parser_id)
         cached_titles = await service.get_genre_titles(parser_id=self.parser_id, genre_id=genre_id, page=page)
         if is_expired and cached_titles:
-            background_tasks.add_task(self.update_genre, existing_genre.name, page, service)
+            background_tasks.add_task(self.update_genre, genre_id=genre_id, page=page, service=service, genre_website_id=existing_genre.id_on_website)
         titles = cached_titles if cached_titles else await self.update_genre(genre_id=genre_id, page=page, service=service, raise_error=True, genre_website_id=existing_genre.id_on_website)
         return await self._prepare_titles(titles=titles, db=db, background_tasks=background_tasks)
     
