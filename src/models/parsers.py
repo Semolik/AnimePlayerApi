@@ -1,8 +1,7 @@
 from typing import List
 from uuid import uuid4
 from src.db.base import Base
-from sqlalchemy import UUID, Boolean, Column, Integer, String, DateTime, func, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import UUID,  Column, String, DateTime, func, ForeignKey
 
 
 class Title(Base):
@@ -12,7 +11,6 @@ class Title(Base):
     id_on_website = Column(String, nullable=False, unique=True)
     parser_id = Column(String, nullable=False)
     name = Column(String, nullable=False)
-    page_fetched = Column(Boolean, default=False)
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -22,9 +20,16 @@ class Title(Base):
         DateTime(timezone=True),
         server_default=func.now()
     )
-    description = Column(String)
     image_url = Column(String)
-    year = Column(Integer)
+
+
+class FavoriteTitle(Base):
+    __tablename__ = "favorite_titles"
+
+    title_id = Column(UUID(as_uuid=True), ForeignKey(
+        Title.id), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey(
+        "users.id"), primary_key=True)
 
 
 class Genre(Base):

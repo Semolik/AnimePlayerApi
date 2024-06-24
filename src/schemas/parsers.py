@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class LinkParsedTitle(BaseModel):
     id_on_website: str
     name: str
+    en_name: str | None = None
 
 
 class ParsedTitleShort(LinkParsedTitle):
@@ -24,6 +25,7 @@ class ParsedTitle(ParsedTitleShort):
 class TitleLink(BaseModel):
     id: uuid.UUID
     name: str
+    en_name: str | None = None
     parser_id: str
 
     class Config:
@@ -58,6 +60,7 @@ class Title(TitleShort):
     related: list[TitleLink] = []
     recommended: list[TitleShort] = []
     genres: list[Genre] = []
+    liked: bool = False
 
     class Config:
         from_attributes = True

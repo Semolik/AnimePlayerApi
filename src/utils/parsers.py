@@ -11,6 +11,7 @@ from src.schemas.parsers import Genre, LinkParsedTitle, ParsedGenre, ParsedTitle
 from src.redis.services import ParserInfoService
 from src.redis.containers import Container
 from src.models.parsers import Title as TitleModel, Genre as GenreModel
+from src.models.users import User as UserModel
 
 
 @dataclass
@@ -37,14 +38,14 @@ class Parser:
         self.genres_cache_period = genres_cache_period
         self.functions = functions
 
-    async def get_title(self, db_title: TitleModel, background_tasks: BackgroundTasks, db: AsyncSession, service: ParserInfoService = Depends(Provide[Container.service])):
+    async def get_title(self, db_title: TitleModel, background_tasks: BackgroundTasks, db: AsyncSession, current_user: UserModel, service: ParserInfoService = Depends(Provide[Container.service])) -> Title:
         title_id = db_title.id
         is_expired, cached_title = await self._get_cached_title(title_id, service)
-        if not cached_title or is_expired or not db_title.page_fetched:
+        if not cached_title or is_expired or not db_title.image_url:
             title_obj = await self._update_title_cache(db_title.id_on_website, title_id, service)
         else:
             title_obj = ParsedTitle(**cached_title)
-        return await self._prepare_title(title_obj=title_obj, db_title=db_title, db=db, background_tasks=background_tasks)
+        return await self._prepare_title(title_obj=title_obj, db_title=db_title, db=db, background_tasks=background_tasks, current_user=current_user)
 
     async def get_titles(self, page: int, background_tasks: BackgroundTasks, db: AsyncSession, service: ParserInfoService = Depends(Provide[Container.service])) -> List[Title]:
         is_expired = await service.expire_status(parser_id=self.parser_id)
@@ -85,8 +86,8 @@ class Parser:
         await self.update_expire_status(service=service)
         return title_obj
 
-    async def _prepare_title(self, title_obj: ParsedTitle, db_title: TitleModel, db: AsyncSession, background_tasks: BackgroundTasks) -> Title:
-        if not db_title.page_fetched:
+    async def _prepare_title(self, title_obj: ParsedTitle, db_title: TitleModel, db: AsyncSession, background_tasks: BackgroundTasks, current_user: UserModel) -> Title:
+        if not db_title.image_url and title_obj.image_url:
             db_title = await TitlesCrud(db).update_title(db_title=db_title, title=title_obj)
         elif await self.title_data_changed(title_obj, db_title):
             background_tasks.add_task(
@@ -99,6 +100,9 @@ class Parser:
         title_db_obj.related = related_titles
         title_db_obj.genres = await self._prepare_genres_names(
             genres_names=title_obj.genres_names, db=db, background_tasks=background_tasks)
+        if current_user:
+            title_db_obj.liked = await TitlesCrud(db).title_is_favorite(
+                title_id=db_title.id, user_id=current_user.id)
         return title_db_obj
 
     async def update_titles(self, page: int, service: ParserInfoService, raise_error: bool = False) -> List[ParsedTitleShort]:

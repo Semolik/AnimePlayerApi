@@ -3,8 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from src.crud.base import BaseCRUD
 from src.crud.genres_crud import GenresCrud
-from src.models.parsers import Title, RelatedLink, RelatedTitle
-from src.schemas.parsers import ParsedTitleShort, ParsedTitle
+from src.models.parsers import FavoriteTitle, Title, RelatedLink, RelatedTitle
+from src.schemas.parsers import LinkParsedTitle, ParsedTitleShort, ParsedTitle
 
 
 class TitlesCrud(BaseCRUD):
@@ -21,12 +21,11 @@ class TitlesCrud(BaseCRUD):
             RelatedTitle.link_id == related_link.id and RelatedTitle.title_id != title_id)
         return (await self.db.execute(query)).scalars().all()
 
-    async def create_title(self, title: ParsedTitleShort, parser_id: str) -> Title:
+    async def create_title(self, title: ParsedTitleShort | LinkParsedTitle, parser_id: str) -> Title:
         title = Title(
             id_on_website=title.id_on_website,
             parser_id=parser_id,
             name=title.name,
-            page_fetched=False,
             image_url=title.image_url if hasattr(title, 'image_url') else None,
         )
         return await self.create(title)
@@ -48,17 +47,6 @@ class TitlesCrud(BaseCRUD):
         related_title = RelatedTitle(title_id=title_id, link_id=link_id)
         return await self.create(related_title)
 
-    async def create_full_title(self, title: ParsedTitle, parser_id: str) -> Title:
-        title = Title(
-            id_on_website=title.id_on_website,
-            parser_id=parser_id,
-            name=title.name,
-            page_fetched=True,
-            image_url=title.image_url,
-            description=title.description,
-        )
-        return await self.create(title)
-
     async def get_title_by_website_id(self, website_id: str) -> Title:
         query = select(Title).where(Title.id_on_website == website_id)
         return (await self.db.execute(query)).scalar()
@@ -66,13 +54,23 @@ class TitlesCrud(BaseCRUD):
     async def update_title(self, db_title: Title, title: ParsedTitle | ParsedTitleShort) -> Title:
         db_title.name = title.name
         db_title.image_url = title.image_url
-
-        if isinstance(title, ParsedTitle):
-            db_title.page_fetched = True
-            db_title.description = title.description
-
         return await self.update(db_title)
 
     async def get_title_by_id(self, title_id: UUID) -> Title:
         query = select(Title).where(Title.id == title_id)
         return (await self.db.execute(query)).scalar()
+
+    async def get_favorite_title(self, title_id: UUID, user_id: UUID) -> FavoriteTitle:
+        query = select(FavoriteTitle).where(
+            FavoriteTitle.title_id == title_id, FavoriteTitle.user_id == user_id)
+        return (await self.db.execute(query)).scalar()
+
+    async def title_is_favorite(self, title_id: UUID, user_id: UUID) -> bool:
+        return (await self.get_favorite_title(title_id, user_id)) is not None
+
+    async def get_favorite_titles_by_user_id(self, user_id: UUID, page: int, page_size: int) -> list[Title]:
+        return await self.paginate(Title, page=page, per_page=page_size, query_func=lambda q: q.join(FavoriteTitle).where(FavoriteTitle.user_id == user_id))
+
+    async def create_favorite_title(self, title_id: UUID, user_id: UUID):
+        favorite_title = FavoriteTitle(title_id=title_id, user_id=user_id)
+        return await self.create(favorite_title)

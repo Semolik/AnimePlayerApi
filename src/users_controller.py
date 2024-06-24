@@ -19,7 +19,6 @@ from fastapi_users.authentication import CookieTransport
 from src.mail.conf import conf
 from fastapi_mail import FastMail, MessageSchema, MessageType
 from src.core.config import settings
-# SECRET = getenv("SECRET")
 
 
 async def get_user_db(session: AsyncSession = Depends(get_async_session)):

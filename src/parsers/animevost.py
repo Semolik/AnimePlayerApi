@@ -12,12 +12,25 @@ WEBSITE_URL = "https://v2.vost.pw"
 
 def series_from_title(name):
     first = name.split(" /")
+    if len(first) == 1:
+        return None
     second = first[1].split(" [")
     return second[1][:-1]
 
 
 def get_original_title(name):
     return name.split(" /")[0]
+
+
+def get_en_title(name):
+    first = name.split(" /")
+    if len(first) == 1:
+        return None
+    second = first[1].split(" [")
+    en_name = second[0].strip()
+    if en_name.endswith('.'):
+        en_name = en_name[:-1]
+    return en_name
 
 
 async def get_titles(page: int) -> list[ParsedTitleShort]:
@@ -32,7 +45,6 @@ async def get_titles(page: int) -> list[ParsedTitleShort]:
 
 
 async def get_title_related(full_title: str, title_id: int) -> list[LinkParsedTitle]:
-    print(full_title)
     async with aiohttp.ClientSession() as session:
         async with session.post(
                 f'{WEBSITE_URL}/index.php?do=search',
@@ -75,24 +87,29 @@ async def get_title(title_id: str) -> ParsedTitle:
     if not title_id.isdigit():
         raise HTTPException(
             status_code=404, detail="Title ID for animevost must be a number.")
-    async with aiohttp.ClientSession() as session:
-        async with session.post(f'{API_URL}/info', data={'id': int(title_id)}) as data:
-            json = await data.json()
-            data = json['data'][0]
-            series = series_from_title(data['title'])
-            match = re.match(r'^[^\[]+', data['title'])
-            related_titles = await get_title_related(match.group(), title_id) if match else []
-            return ParsedTitle(
-                id_on_website=title_id,
-                name=get_original_title(data['title']),
-                image_url=data['urlImagePreview'],
-                additional_info=series,
-                description=data['description'],
-                series=series,
-                related_titles=related_titles,
-                year=data['year'],
-                genres_names=data['genre'].split(', '),
-            )
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f'{API_URL}/info', data={'id': int(title_id)}) as data:
+                json = await data.json()
+                data = json['data'][0]
+                series = series_from_title(data['title'])
+                match = re.match(r'^[^\[]+', data['title'])
+                related_titles = await get_title_related(match.group(), title_id) if match else []
+                return ParsedTitle(
+                    id_on_website=title_id,
+                    name=get_original_title(data['title']),
+                    en_name=get_en_title(data['title']),
+                    image_url=data['urlImagePreview'],
+                    additional_info=series,
+                    description=data['description'],
+                    series=series,
+                    related_titles=related_titles,
+                    year=data['year'],
+                    genres_names=data['genre'].split(', '),
+                )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail='Error while getting title from animevost.')
 
 
 async def get_genres() -> list[ParsedGenre]:
@@ -136,6 +153,7 @@ def get_titles_from_page(soup: BeautifulSoup) -> list[ParsedTitleShort]:
             related_titles=related_titles,
             id_on_website=get_id_from_url(a['href']),
             name=get_original_title(name),
+            en_name=get_en_title(name),
             additional_info=series_from_title(name),
             image_url=WEBSITE_URL+title.select_one('img')['src']
         ))
