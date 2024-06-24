@@ -44,8 +44,6 @@ async def get_title(title_id: str) -> ParsedTitle:
             data = json['data'][0]
             year = data['year']
             series = series_from_title(data['title'])
-            print(data)
-            print(year)
             return ParsedTitle(
                 id_on_website=title_id,
                 name=get_original_title(data['title']),
