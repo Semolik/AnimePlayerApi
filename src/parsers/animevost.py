@@ -139,7 +139,7 @@ def get_titles_from_page(soup: BeautifulSoup) -> list[ParsedTitleShort]:
             additional_info=series_from_title(name),
             image_url=WEBSITE_URL+title.select_one('img')['src']
         ))
-    return result[::-1]
+    return result
 
 
 async def get_genre(genre_website_id: str, page: int) -> list[ParsedTitleShort]:

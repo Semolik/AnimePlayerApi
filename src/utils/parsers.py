@@ -40,7 +40,7 @@ class Parser:
     async def get_title(self, db_title: TitleModel, background_tasks: BackgroundTasks, db: AsyncSession, service: ParserInfoService = Depends(Provide[Container.service])):
         title_id = db_title.id
         is_expired, cached_title = await self._get_cached_title(title_id, service)
-        if not cached_title or is_expired:
+        if not cached_title or is_expired or not db_title.page_fetched:
             title_obj = await self._update_title_cache(db_title.id_on_website, title_id, service)
         else:
             title_obj = ParsedTitleShort(**cached_title)
@@ -89,6 +89,8 @@ class Parser:
         if await self.title_data_changed(title_obj, db_title):
             background_tasks.add_task(
                 self.update_title_in_db, title_id=db_title.id, db=db, title_data=title_obj)
+        if not db_title.page_fetched:
+            db_title = await TitlesCrud(db).update_title(db_title=db_title, title=title_obj)
         title_db_obj = Title.model_validate(db_title)
         for key, value in title_obj.model_dump().items():
             if hasattr(title_db_obj, key):
