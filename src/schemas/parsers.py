@@ -1,12 +1,17 @@
+from typing import Literal
 import uuid
 from pydantic import BaseModel
 
 
-class ParsedTitleShort(BaseModel):
-    name: str
-    image_url: str
-    additional_info: str = None
+class LinkParsedTitle(BaseModel):
     id_on_website: str
+    name: str
+
+
+class ParsedTitleShort(LinkParsedTitle):
+    image_url: str
+    related_titles: list[LinkParsedTitle] = []
+    additional_info: str = None
 
 
 class ParsedTitle(ParsedTitleShort):
@@ -15,11 +20,17 @@ class ParsedTitle(ParsedTitleShort):
     year: str
 
 
-class TitleShort(BaseModel):
+class TitleLink(BaseModel):
     id: uuid.UUID
     name: str
-    image_url: str
     parser_id: str
+
+    class Config:
+        from_attributes = True
+
+
+class TitleShort(TitleLink):
+    image_url: str
     additional_info: str = None
 
     class Config:
@@ -29,6 +40,8 @@ class TitleShort(BaseModel):
 class Title(TitleShort):
     description: str | None = None
     year: str | None = None
+    related: list[TitleLink] = []
+    recommended: list[TitleShort] = []
 
     class Config:
         from_attributes = True

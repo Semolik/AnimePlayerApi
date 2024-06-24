@@ -2,6 +2,7 @@ from typing import List
 from uuid import uuid4
 from src.db.base import Base
 from sqlalchemy import UUID, Boolean, Column, Integer, String, DateTime, func, ForeignKey
+from sqlalchemy.orm import relationship
 
 
 class Title(Base):
@@ -22,7 +23,7 @@ class Title(Base):
         server_default=func.now()
     )
     description = Column(String)
-    image_url = Column(String, nullable=False)
+    image_url = Column(String)
     year = Column(Integer)
 
 

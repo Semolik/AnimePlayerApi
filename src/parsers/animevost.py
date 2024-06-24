@@ -1,6 +1,7 @@
+import re
 import aiohttp
 from src.utils.parsers import Parser, ParserFunctions
-from src.schemas.parsers import ParsedTitle, ParsedTitleShort, ParsedGenre
+from src.schemas.parsers import LinkParsedTitle, ParsedTitle, ParsedTitleShort, ParsedGenre
 from fastapi import HTTPException
 from bs4 import BeautifulSoup
 
@@ -21,17 +22,53 @@ def get_original_title(name):
 
 async def get_titles(page: int) -> list[ParsedTitleShort]:
     async with aiohttp.ClientSession() as session:
-        async with session.get(f'{API_URL}/last', params={'page': page, 'quantity': 20}) as data:
-            json = await data.json()
-            return [
-                ParsedTitleShort(
-                    id_on_website=str(title['id']),
-                    name=get_original_title(title['title']),
-                    image_url=title['urlImagePreview'],
-                    additional_info=series_from_title(title['title'])
-                )
-                for title in json['data']
-            ]
+        url = WEBSITE_URL
+        if page > 1:
+            url += f'/page/{page}/'
+        async with session.get(url) as response:
+            html = await response.text()
+            soup = BeautifulSoup(html, 'html.parser')
+            return get_titles_from_page(soup)
+
+
+async def get_title_related(full_title: str, title_id: int) -> list[LinkParsedTitle]:
+    print(full_title)
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+                f'{WEBSITE_URL}/index.php?do=search',
+                data={
+                    'do': 'search', 'subaction': 'search',
+                    'search_start': 0,
+                    'full_search': 1,
+                    'result_from': 1,
+                    'story': full_title,
+                    'all_word_seach': 1,
+                    'titleonly': 0,
+                    'searchuser': '',
+                    'replyless': 0,
+                    'replylimit': 0,
+                    'searchdate': 0,
+                    'beforeafter': 'after',
+                    'sortby': 'date',
+                    'resorder': 'desc',
+                    'showposts': 0,
+                    'catlist': [0],
+                }
+        ) as data:
+            html = await data.text()
+            soup = BeautifulSoup(html, 'html.parser')
+            short_stories = soup.select('div.shortstory')
+            for story in short_stories:
+                a = story.select_one('div.shortstoryHead > h2 > a')
+                if get_id_from_url(a['href']) == str(title_id):
+                    return [
+                        LinkParsedTitle(
+                            id_on_website=get_id_from_url(a['href']),
+                            name=get_original_title(a.text),
+                        )
+                        for a in story.select('div.shortstoryContent > div.text_spoiler > ol > li > a')
+                    ]
+            return []
 
 
 async def get_title(title_id: str) -> ParsedTitle:
@@ -44,6 +81,8 @@ async def get_title(title_id: str) -> ParsedTitle:
             data = json['data'][0]
             year = data['year']
             series = series_from_title(data['title'])
+            match = re.match(r'^[^\[]+', data['title'])
+            related_titles = await get_title_related(match.group(), title_id) if match else []
             return ParsedTitle(
                 id_on_website=title_id,
                 name=get_original_title(data['title']),
@@ -51,6 +90,7 @@ async def get_title(title_id: str) -> ParsedTitle:
                 additional_info=series,
                 description=data['description'],
                 series=series,
+                related_titles=related_titles,
                 year=year
             )
 
@@ -81,13 +121,25 @@ def get_titles_from_page(soup: BeautifulSoup) -> list[ParsedTitleShort]:
     for title in titles:
         a = title.select_one('div.shortstoryHead > h2 > a')
         name = a.text
+        related_titles = []
+        text_spoiler = title.select_one('div.text_spoiler > ol > li > a')
+        if text_spoiler:
+            related_titles = [
+                LinkParsedTitle(
+                    id_on_website=get_id_from_url(a['href']),
+                    name=get_original_title(a.text),
+                    additional_info=a.next_sibling,
+                )
+                for a in text_spoiler.select('a')
+            ]
         result.append(ParsedTitleShort(
+            related_titles=related_titles,
             id_on_website=get_id_from_url(a['href']),
             name=get_original_title(name),
             additional_info=series_from_title(name),
             image_url=WEBSITE_URL+title.select_one('img')['src']
         ))
-    return result
+    return result[::-1]
 
 
 async def get_genre(genre_website_id: str, page: int) -> list[ParsedTitleShort]:

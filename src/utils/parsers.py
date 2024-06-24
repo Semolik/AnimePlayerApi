@@ -7,7 +7,7 @@ from fastapi.logger import logger
 from src.crud.genres_crud import GenresCrud
 from src.db.session import get_async_session, AsyncSession
 from src.crud.titles_crud import TitlesCrud
-from src.schemas.parsers import Genre, ParsedGenre, ParsedTitle, ParsedTitleShort, Title, TitleShort
+from src.schemas.parsers import Genre, LinkParsedTitle, ParsedGenre, ParsedTitle, ParsedTitleShort, Title, TitleLink, TitleShort
 from src.redis.services import ParserInfoService
 from src.redis.containers import Container
 from src.models.parsers import Title as TitleModel, Genre as GenreModel
@@ -52,7 +52,6 @@ class Parser:
 
         if is_expired and cached_titles:
             background_tasks.add_task(self.update_titles, page, service)
-
         titles = cached_titles if cached_titles else await self.update_titles(page=page, service=service)
         return await self._prepare_titles(titles=titles, db=db, background_tasks=background_tasks)
 
@@ -90,11 +89,13 @@ class Parser:
     async def _prepare_title(self, title_obj: ParsedTitleShort, db_title: TitleModel, db: AsyncSession, background_tasks: BackgroundTasks, service: ParserInfoService) -> TitleModel:
         if await self.title_data_changed(title_obj, db_title):
             background_tasks.add_task(
-                self.update_title_in_db, title_data=title_obj, db=db, title_id=db_title.id)
+                self.update_title_in_db, title_id=db_title.id, db=db, title_data=title_obj)
         title_db_obj = Title.model_validate(db_title)
         for key, value in title_obj.model_dump().items():
             if hasattr(title_db_obj, key):
                 setattr(title_db_obj, key, value)
+        related_titles = await self._prepare_related_titles(title_id=db_title.id, related_titles=title_obj.related_titles, db=db)
+        title_db_obj.related = related_titles
         return title_db_obj
 
     async def update_titles(self, page: int, service: ParserInfoService, raise_error: bool = False) -> List[ParsedTitleShort]:
@@ -111,11 +112,10 @@ class Parser:
         await service.set_titles(titles=[title.model_dump() for title in titles], page=page, parser_id=self.parser_id)
         await self.update_expire_status(service=service)
 
-    async def update_title_in_db(self, id_on_website: str, title_id: UUID, db: AsyncSession, service: ParserInfoService, raise_error: bool = False) -> Title:
+    async def update_title_in_db(self, title_id: UUID, db: AsyncSession, title_data: ParsedTitle = None, raise_error: bool = False) -> Title:
         try:
-            title = await self.update_title(id_on_website=id_on_website, title_id=title_id, service=service, raise_error=True)
             db_title = await TitlesCrud(db).get_title_by_id(title_id=title_id)
-            await TitlesCrud(db).update_title(db_title, title)
+            await TitlesCrud(db).update_title(db_title=db_title, title=title_data)
         except Exception as e:
             logger.error(f'Failed to fetch title: {e}')
             if raise_error:
@@ -126,9 +126,12 @@ class Parser:
         if expired:
             await service.update_expire_status(parser_id=self.parser_id, hours=self.titles_cache_period)
 
-    async def update_title(self, id_on_website: str, title_id: UUID, service: ParserInfoService, raise_error: bool = False) -> ParsedTitle:
+    async def update_title(self, id_on_website: str, title_id: UUID, service: ParserInfoService, db: AsyncSession, raise_error: bool = False) -> ParsedTitle:
         try:
             title = await self.functions.get_title(id_on_website)
+            if title.related_titles:
+                related_titles = await self._prepare_related_titles(title_id=title_id, related_titles=title.related_titles, db=db, background_tasks=background_tasks)
+                title.related_titles = related_titles
             await service.set_title(title_id=title_id, title=title.model_dump(), parser_id=self.parser_id)
             await self.update_expire_status(service=service)
             return title
@@ -163,15 +166,29 @@ class Parser:
             if raise_error:
                 raise e
 
-    async def update_title_in_db(self, title_data: ParsedTitleShort, db: AsyncSession, title_id: UUID) -> Title:
-        existing_title = await TitlesCrud(db).get_title_by_id(title_id=title_id)
-        return await TitlesCrud(db).update_title(existing_title, title_data)
-
     async def title_data_changed(self, title_data: ParsedTitleShort, db_title: Title) -> bool:
         for key, value in title_data.model_dump().items():
             if hasattr(db_title, key) and getattr(db_title, key) != value:
                 return True
         return False
+
+    async def _prepare_related_titles(self, title_id: UUID, related_titles: List[LinkParsedTitle], db: AsyncSession) -> List[TitleLink]:
+        related_link = await TitlesCrud(db).get_related_link_by_title_id(title_id=title_id)
+        if not related_link:
+            related_link = await TitlesCrud(db).create_related_link()
+        related_titles_objs = []
+        for related_title in related_titles:
+            existing_title = await TitlesCrud(db).get_title_by_website_id(website_id=related_title.id_on_website)
+            if not existing_title:
+                existing_title = await TitlesCrud(db).create_title(related_title, self.parser_id)
+            if existing_title.id == title_id:
+                continue
+            related = await TitlesCrud(db).get_related_title(title_id=existing_title.id, link_id=related_link.id)
+            if not related:
+                related = await TitlesCrud(db).create_related_title(title_id=existing_title.id, link_id=related_link.id)
+            related_titles_objs.append(
+                TitleLink.model_validate(existing_title))
+        return related_titles_objs
 
     async def _prepare_titles(self, titles: List[ParsedTitleShort], db: AsyncSession, background_tasks: BackgroundTasks) -> List[Title]:
         db_titles = []
@@ -185,7 +202,7 @@ class Parser:
                     title for title in existing_titles if title.id_on_website == parsed_title.id_on_website)
                 if await self.title_data_changed(parsed_title, title):
                     background_tasks.add_task(
-                        self.update_title_in_db, title_data=parsed_title, db=db, title_id=title.id)
+                        self.update_title_in_db, title_id=title.id, db=db, title_data=parsed_title)
             title_obj = TitleShort.model_validate(title)
             title_obj.additional_info = parsed_title.additional_info
             db_titles.append(title_obj)
