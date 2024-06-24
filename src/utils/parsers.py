@@ -43,7 +43,7 @@ class Parser:
         if not cached_title or is_expired or not db_title.page_fetched:
             title_obj = await self._update_title_cache(db_title.id_on_website, title_id, service)
         else:
-            title_obj = ParsedTitleShort(**cached_title)
+            title_obj = ParsedTitle(**cached_title)
         return await self._prepare_title(title_obj=title_obj, db_title=db_title, db=db, background_tasks=background_tasks)
 
     async def get_titles(self, page: int, background_tasks: BackgroundTasks, db: AsyncSession, service: ParserInfoService = Depends(Provide[Container.service])) -> List[Title]:
@@ -79,24 +79,26 @@ class Parser:
         cached_title = await service.get_title(parser_id=self.parser_id, title_id=title_id)
         return is_expired, cached_title
 
-    async def _update_title_cache(self, id_on_website: str, title_id: UUID, service: ParserInfoService) -> ParsedTitleShort:
+    async def _update_title_cache(self, id_on_website: str, title_id: UUID, service: ParserInfoService) -> ParsedTitle:
         title_obj = await self.functions.get_title(id_on_website)
         await service.set_title(title_id=title_id, title=title_obj.model_dump(), parser_id=self.parser_id)
         await self.update_expire_status(service=service)
         return title_obj
 
-    async def _prepare_title(self, title_obj: ParsedTitleShort, db_title: TitleModel, db: AsyncSession, background_tasks: BackgroundTasks) -> TitleModel:
-        if await self.title_data_changed(title_obj, db_title):
-            background_tasks.add_task(
-                self.update_title_in_db, title_id=db_title.id, db=db, title_data=title_obj)
+    async def _prepare_title(self, title_obj: ParsedTitle, db_title: TitleModel, db: AsyncSession, background_tasks: BackgroundTasks) -> Title:
         if not db_title.page_fetched:
             db_title = await TitlesCrud(db).update_title(db_title=db_title, title=title_obj)
+        elif await self.title_data_changed(title_obj, db_title):
+            background_tasks.add_task(
+                self.update_title_in_db, title_id=db_title.id, db=db, title_data=title_obj)
         title_db_obj = Title.model_validate(db_title)
         for key, value in title_obj.model_dump().items():
             if hasattr(title_db_obj, key):
                 setattr(title_db_obj, key, value)
         related_titles = await self._prepare_related_titles(title_id=db_title.id, related_titles=title_obj.related_titles, db=db)
         title_db_obj.related = related_titles
+        title_db_obj.genres = await self._prepare_genres_names(
+            genres_names=title_obj.genres_names, db=db, background_tasks=background_tasks)
         return title_db_obj
 
     async def update_titles(self, page: int, service: ParserInfoService, raise_error: bool = False) -> List[ParsedTitleShort]:
@@ -209,6 +211,20 @@ class Parser:
             db_titles.append(title_obj)
         return db_titles
 
+    async def _prepare_genres_names(self, genres_names: List[str], db: AsyncSession, background_tasks: BackgroundTasks) -> List[Genre]:
+        all_genres = await self.get_genres(background_tasks=background_tasks, db=db)
+        db_genres = []
+        for genre_name in genres_names:
+            genre = next(
+                genre for genre in all_genres if genre.name.lower() == genre_name)
+            if not genre:
+                continue
+            db_genre = await GenresCrud(db).get_genre_by_website_id(website_id=genre.id_on_website)
+            if not db_genre:
+                db_genre = await GenresCrud(db).create_genre(genre=genre, parser_id=self.parser_id)
+            db_genres.append(db_genre)
+        return db_genres
+
     async def _prepare_genres(self, genres: List[ParsedGenre], db: AsyncSession) -> List[Genre]:
         existing_genres = await GenresCrud(db).get_genres_by_website_ids(website_ids=[genre.id_on_website for genre in genres])
         existing_ids_set = {genre.id_on_website for genre in existing_genres}
@@ -219,6 +235,8 @@ class Parser:
             else:
                 genre = next(
                     genre for genre in existing_genres if genre.id_on_website == parsed_genre.id_on_website)
+                if not genre:
+                    continue
             db_genres.append(genre)
         return db_genres
 

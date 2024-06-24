@@ -79,7 +79,6 @@ async def get_title(title_id: str) -> ParsedTitle:
         async with session.post(f'{API_URL}/info', data={'id': int(title_id)}) as data:
             json = await data.json()
             data = json['data'][0]
-            year = data['year']
             series = series_from_title(data['title'])
             match = re.match(r'^[^\[]+', data['title'])
             related_titles = await get_title_related(match.group(), title_id) if match else []
@@ -91,7 +90,8 @@ async def get_title(title_id: str) -> ParsedTitle:
                 description=data['description'],
                 series=series,
                 related_titles=related_titles,
-                year=year
+                year=data['year'],
+                genres_names=data['genre'].split(', '),
             )
 
 

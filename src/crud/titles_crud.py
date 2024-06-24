@@ -1,6 +1,8 @@
 from uuid import UUID
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from src.crud.base import BaseCRUD
+from src.crud.genres_crud import GenresCrud
 from src.models.parsers import Title, RelatedLink, RelatedTitle
 from src.schemas.parsers import ParsedTitleShort, ParsedTitle
 
@@ -64,9 +66,9 @@ class TitlesCrud(BaseCRUD):
     async def update_title(self, db_title: Title, title: ParsedTitle | ParsedTitleShort) -> Title:
         db_title.name = title.name
         db_title.image_url = title.image_url
-        db_title.page_fetched = True
 
         if isinstance(title, ParsedTitle):
+            db_title.page_fetched = True
             db_title.description = title.description
 
         return await self.update(db_title)

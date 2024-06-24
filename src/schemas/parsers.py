@@ -18,6 +18,7 @@ class ParsedTitle(ParsedTitleShort):
     description: str | None = None
     series: str | None = None
     year: str
+    genres_names: list[str]
 
 
 class TitleLink(BaseModel):
@@ -37,16 +38,6 @@ class TitleShort(TitleLink):
         from_attributes = True
 
 
-class Title(TitleShort):
-    description: str | None = None
-    year: str | None = None
-    related: list[TitleLink] = []
-    recommended: list[TitleShort] = []
-
-    class Config:
-        from_attributes = True
-
-
 class ParsedGenre(BaseModel):
     name: str
     id_on_website: str
@@ -56,6 +47,17 @@ class Genre(BaseModel):
     id: uuid.UUID
     name: str
     parser_id: str
+
+    class Config:
+        from_attributes = True
+
+
+class Title(TitleShort):
+    description: str | None = None
+    year: str | None = None
+    related: list[TitleLink] = []
+    recommended: list[TitleShort] = []
+    genres: list[Genre] = []
 
     class Config:
         from_attributes = True
