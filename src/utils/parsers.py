@@ -44,12 +44,11 @@ class Parser:
             title_obj = await self._update_title_cache(db_title.id_on_website, title_id, service)
         else:
             title_obj = ParsedTitleShort(**cached_title)
-        return await self._prepare_title(title_obj, db_title, db, background_tasks, service)
+        return await self._prepare_title(title_obj=title_obj, db_title=db_title, db=db, background_tasks=background_tasks)
 
     async def get_titles(self, page: int, background_tasks: BackgroundTasks, db: AsyncSession, service: ParserInfoService = Depends(Provide[Container.service])) -> List[Title]:
         is_expired = await service.expire_status(parser_id=self.parser_id)
         cached_titles = await service.get_titles(parser_id=self.parser_id, page=page)
-
         if is_expired and cached_titles:
             background_tasks.add_task(self.update_titles, page, service)
         titles = cached_titles if cached_titles else await self.update_titles(page=page, service=service)
@@ -86,7 +85,7 @@ class Parser:
         await self.update_expire_status(service=service)
         return title_obj
 
-    async def _prepare_title(self, title_obj: ParsedTitleShort, db_title: TitleModel, db: AsyncSession, background_tasks: BackgroundTasks, service: ParserInfoService) -> TitleModel:
+    async def _prepare_title(self, title_obj: ParsedTitleShort, db_title: TitleModel, db: AsyncSession, background_tasks: BackgroundTasks) -> TitleModel:
         if await self.title_data_changed(title_obj, db_title):
             background_tasks.add_task(
                 self.update_title_in_db, title_id=db_title.id, db=db, title_data=title_obj)
@@ -130,7 +129,7 @@ class Parser:
         try:
             title = await self.functions.get_title(id_on_website)
             if title.related_titles:
-                related_titles = await self._prepare_related_titles(title_id=title_id, related_titles=title.related_titles, db=db, background_tasks=background_tasks)
+                related_titles = await self._prepare_related_titles(title_id=title_id, related_titles=title.related_titles, db=db)
                 title.related_titles = related_titles
             await service.set_title(title_id=title_id, title=title.model_dump(), parser_id=self.parser_id)
             await self.update_expire_status(service=service)
