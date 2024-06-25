@@ -9,6 +9,15 @@ from bs4 import BeautifulSoup
 API_URL = "https://api.animetop.info/v1"
 WEBSITE_URL = "https://v2.vost.pw"
 
+kinds = {
+    "ТВ": "tv",
+    "ТВ-спэшл": "tv_special",
+    "OVA": "ova",
+    "ONA": "ona",
+    "Полнометражный фильм": "movie",
+    "Короткометражный фильм": "movie",
+}
+
 
 def series_from_title(name):
     first = name.split(" /")
@@ -110,6 +119,7 @@ async def get_title(title_id: str) -> ParsedTitle:
                     related_titles=related_titles,
                     year=data['year'],
                     genres_names=data['genre'].split(', '),
+                    kind=kinds.get(data['type'])
                 )
     except Exception as e:
         print("Error while getting title from animevost:", e)

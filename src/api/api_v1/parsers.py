@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from src.crud.titles_crud import TitlesCrud
 from src.crud.genres_crud import GenresCrud
 from src.db.session import get_async_session, AsyncSession
-from src.schemas.parsers import FavoriteTitle, Genre, Title, TitleShort
+from src.schemas.parsers import FavoriteTitle, Genre, ParserInfo, Title, TitleShort
 from src.parsers import animevost
 from src.users_controller import optional_current_user, current_active_user
 api_router = APIRouter(prefix="/parsers")
@@ -13,6 +13,11 @@ parsers = [animevost.parser]
 parsers_dict = {parser.parser_id: parser for parser in parsers}
 
 ParserId = Literal[tuple([parser.parser_id for parser in parsers])]  # nopep8 # type: ignore
+
+
+@api_router.get("", response_model=list[ParserInfo])
+async def get_parsers():
+    return [ParserInfo(id=parser.parser_id, name=parser.name) for parser in parsers]
 
 
 @api_router.get("/{parser_id}/titles", response_model=list[TitleShort])

@@ -1,7 +1,7 @@
 from typing import List
 from uuid import uuid4
 from src.db.base import Base
-from sqlalchemy import UUID,  Column, String, DateTime, func, ForeignKey
+from sqlalchemy import UUID,  Column, Integer, String, DateTime, func, ForeignKey, Boolean
 
 
 class Title(Base):
@@ -11,6 +11,8 @@ class Title(Base):
     id_on_website = Column(String, nullable=False, unique=True)
     parser_id = Column(String, nullable=False)
     name = Column(String, nullable=False)
+    shikimori_fetched = Column(Boolean, default=False)
+    shikimori_id = Column(Integer, nullable=True)
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

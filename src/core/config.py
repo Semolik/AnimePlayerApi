@@ -44,8 +44,11 @@ class Settings(BaseSettings):
 
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
-
+    SHIKIMORI_EXPIRATION_HOURS: int = 24
     USERS_OPEN_REGISTRATION: bool = True
+
+    shikimori_kinds: List[str] = ["tv", "movie", "ova", "ona", "special", "tv_special",
+                                  "music", "pv", "cm", "tv_13", "tv_24", "tv_48"]
 
     class Config:
         case_sensitive = True

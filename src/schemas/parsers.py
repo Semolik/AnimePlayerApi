@@ -1,6 +1,8 @@
+from datetime import datetime
 from typing import Literal
 import uuid
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator, validator
+from src.core.config import settings
 
 
 class LinkParsedTitle(BaseModel):
@@ -20,6 +22,12 @@ class ParsedTitle(ParsedTitleShort):
     series: str | None = None
     year: str
     genres_names: list[str]
+    kind: Literal[tuple(settings.shikimori_kinds)] = None  # nopep8 # type: ignore
+
+
+class ShikimoriTitle(BaseModel):
+    last_fetch: datetime
+    data: dict
 
 
 class TitleLink(BaseModel):
@@ -65,6 +73,16 @@ class Title(TitleShort):
     recommended: list[TitleShort] = []
     genres: list[Genre] = []
     liked: bool = False
+    shikimori: ShikimoriTitle | None = None
+    shikimori_loaded: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class ParserInfo(BaseModel):
+    id: str
+    name: str
 
     class Config:
         from_attributes = True

@@ -1,11 +1,12 @@
+from datetime import datetime
 import json
 from uuid import UUID
 from aioredis import Redis
 
-from src.schemas.parsers import ParsedGenre, ParsedTitleShort
+from src.schemas.parsers import ParsedGenre, ParsedTitleShort, ShikimoriTitle
 
 
-class ParserInfoService:
+class CacheService:
     def __init__(self, redis: Redis) -> None:
         self._redis = redis
 
@@ -57,3 +58,15 @@ class ParserInfoService:
         keys = await self._redis.keys(f"{parser_id}:titles:*")
         if keys:
             await self._redis.delete(*keys)
+
+    async def get_shikimori_title(self, title_id: int):
+        cached = await self._redis.get(f"shikimori:{title_id}")
+        if cached:
+            return ShikimoriTitle(**json.loads(cached))
+
+    async def set_shikimori_title(self, title_id: int, title: dict):
+        title_data = ShikimoriTitle(last_fetch=datetime.now(), data=title)
+        obj = title_data.model_dump()
+        obj['last_fetch'] = obj['last_fetch'].isoformat()
+        await self._redis.set(f"shikimori:{title_id}", json.dumps(obj))
+        return title_data

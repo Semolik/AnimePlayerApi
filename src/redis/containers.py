@@ -15,6 +15,6 @@ class Container(containers.DeclarativeContainer):
     )
 
     service = providers.Factory(
-        services.ParserInfoService,
+        services.CacheService,
         redis=redis_pool,
     )

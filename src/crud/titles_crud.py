@@ -56,6 +56,11 @@ class TitlesCrud(BaseCRUD):
         db_title.image_url = title.image_url
         return await self.update(db_title)
 
+    async def update_shikimori_info(self, db_title: Title, shikimori_id: int) -> Title:
+        db_title.shikimori_id = shikimori_id
+        db_title.shikimori_fetched = True
+        return await self.update(db_title)
+
     async def get_title_by_id(self, title_id: UUID) -> Title:
         query = select(Title).where(Title.id == title_id)
         return (await self.db.execute(query)).scalar()
