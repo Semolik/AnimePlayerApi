@@ -74,7 +74,6 @@ class Title(TitleShort):
     genres: list[Genre] = []
     liked: bool = False
     shikimori: ShikimoriTitle | None = None
-    shikimori_loaded: bool = False
 
     class Config:
         from_attributes = True
