@@ -30,6 +30,10 @@ class FavoriteTitle(Base):
         Title.id), primary_key=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey(
         "users.id"), primary_key=True)
+    added_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
 
 
 class Genre(Base):

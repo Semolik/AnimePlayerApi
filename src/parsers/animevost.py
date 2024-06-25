@@ -45,42 +45,46 @@ async def get_titles(page: int) -> list[ParsedTitleShort]:
 
 
 async def get_title_related(full_title: str, title_id: int) -> list[LinkParsedTitle]:
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-                f'{WEBSITE_URL}/index.php?do=search',
-                data={
-                    'do': 'search', 'subaction': 'search',
-                    'search_start': 0,
-                    'full_search': 1,
-                    'result_from': 1,
-                    'story': full_title,
-                    'all_word_seach': 1,
-                    'titleonly': 0,
-                    'searchuser': '',
-                    'replyless': 0,
-                    'replylimit': 0,
-                    'searchdate': 0,
-                    'beforeafter': 'after',
-                    'sortby': 'date',
-                    'resorder': 'desc',
-                    'showposts': 0,
-                    'catlist': [0],
-                }
-        ) as data:
-            html = await data.text()
-            soup = BeautifulSoup(html, 'html.parser')
-            short_stories = soup.select('div.shortstory')
-            for story in short_stories:
-                a = story.select_one('div.shortstoryHead > h2 > a')
-                if get_id_from_url(a['href']) == str(title_id):
-                    return [
-                        LinkParsedTitle(
-                            id_on_website=get_id_from_url(a['href']),
-                            name=get_original_title(a.text),
-                        )
-                        for a in story.select('div.shortstoryContent > div.text_spoiler > ol > li > a')
-                    ]
-            return []
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                    f'{WEBSITE_URL}/index.php?do=search',
+                    data={
+                        'do': 'search', 'subaction': 'search',
+                        'search_start': 0,
+                        'full_search': 1,
+                        'result_from': 1,
+                        'story': full_title,
+                        'all_word_seach': 1,
+                        'titleonly': 0,
+                        'searchuser': '',
+                        'replyless': 0,
+                        'replylimit': 0,
+                        'searchdate': 0,
+                        'beforeafter': 'after',
+                        'sortby': 'date',
+                        'resorder': 'desc',
+                        'showposts': 0,
+                        'catlist': [0],
+                    }
+            ) as data:
+                html = await data.text()
+                soup = BeautifulSoup(html, 'html.parser')
+                short_stories = soup.select('div.shortstory')
+                for story in short_stories:
+                    a = story.select_one('div.shortstoryHead > h2 > a')
+                    if get_id_from_url(a['href']) == str(title_id):
+                        return [
+                            LinkParsedTitle(
+                                id_on_website=get_id_from_url(a['href']),
+                                name=get_original_title(a.text),
+                            )
+                            for a in story.select('div.shortstoryContent > div.text_spoiler > ol > li > a')
+                        ]
+                return []
+    except Exception as e:
+        print("Error while getting related titles from animevost:", e)
+        return []
 
 
 async def get_title(title_id: str) -> ParsedTitle:
@@ -101,13 +105,14 @@ async def get_title(title_id: str) -> ParsedTitle:
                     en_name=get_en_title(data['title']),
                     image_url=data['urlImagePreview'],
                     additional_info=series,
-                    description=data['description'],
+                    description=data['description'].replace('<br>', ''),
                     series=series,
                     related_titles=related_titles,
                     year=data['year'],
                     genres_names=data['genre'].split(', '),
                 )
     except Exception as e:
+        print("Error while getting title from animevost:", e)
         raise HTTPException(
             status_code=500, detail='Error while getting title from animevost.')
 
@@ -161,14 +166,19 @@ def get_titles_from_page(soup: BeautifulSoup) -> list[ParsedTitleShort]:
 
 
 async def get_genre(genre_website_id: str, page: int) -> list[ParsedTitleShort]:
-    async with aiohttp.ClientSession() as session:
-        url = f'{WEBSITE_URL}/zhanr/{genre_website_id}'
-        if page > 1:
-            url += f'/page/{page}/'
-        async with session.post(url) as response:
-            html = await response.text()
-            soup = BeautifulSoup(html, 'html.parser')
-            return get_titles_from_page(soup)
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f'{WEBSITE_URL}/zhanr/{genre_website_id}'
+            if page > 1:
+                url += f'/page/{page}/'
+            async with session.post(url) as response:
+                html = await response.text()
+                soup = BeautifulSoup(html, 'html.parser')
+                return get_titles_from_page(soup)
+    except Exception as e:
+        print("Error while getting genre from animevost:", e)
+        raise HTTPException(
+            status_code=500, detail='Error while getting genre from animevost.')
 
 functions = ParserFunctions(
     get_titles=get_titles, get_title=get_title, get_genres=get_genres, get_genre=get_genre)

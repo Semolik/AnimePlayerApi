@@ -25,16 +25,20 @@ class ParsedTitle(ParsedTitleShort):
 class TitleLink(BaseModel):
     id: uuid.UUID
     name: str
-    en_name: str | None = None
     parser_id: str
 
     class Config:
         from_attributes = True
 
 
-class TitleShort(TitleLink):
+class FavoriteTitle(TitleLink):
     image_url: str
+
+
+class TitleShort(FavoriteTitle):
+
     additional_info: str = None
+    en_name: str | None = None
 
     class Config:
         from_attributes = True
