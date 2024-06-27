@@ -6,9 +6,8 @@ from src.db.base import Base
 from src.models.users import *
 from src.models.parsers import *
 
-uri = settings.SQLALCHEMY_DATABASE_URI
 engine = create_async_engine(
-    "postgresql+asyncpg://postgres:postgres@database/async_sqlalchemy")
+    f"{settings.POSTGRES_SCHEME}://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_SERVER}/{settings.POSTGRES_DB}")
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
 
 

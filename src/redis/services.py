@@ -22,6 +22,13 @@ class CacheService:
     async def update_expire_status(self, parser_id: str, hours: int):
         await self._redis.set(f"{parser_id}:expire", 1, ex=hours*3600)
 
+    async def get_expires_in(self, parser_id: str) -> int:
+        seconds = await self._redis.ttl(f"{parser_id}:expire")
+        print(f"Expires in {seconds} seconds")
+        if seconds < 0:
+            return 0
+        return seconds
+
     async def get_genre_titles(self, parser_id: str, genre_id: UUID, page: int):
         data = await self._redis.get(f"{parser_id}:titles:{genre_id}:{page}")
         if data:

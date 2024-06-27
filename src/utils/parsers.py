@@ -13,6 +13,7 @@ from src.redis.containers import Container
 from src.models.parsers import Title as TitleModel, Genre as GenreModel
 from src.models.users import User as UserModel
 from src.utils.shikimori import Shikimori
+from src.core.config import settings
 
 
 @dataclass
@@ -24,7 +25,7 @@ class ParserFunctions:
 
 
 class Parser:
-    def __init__(self, *, id: str, name: str, titles_cache_period: int, genres_cache_period: int, functions: ParserFunctions) -> None:
+    def __init__(self, *, id: str, name: str, functions: ParserFunctions) -> None:
         """
         :param id: The identifier to be used as the prefix for the API routes.
         :param name: The name to be used for the API router tags.
@@ -35,8 +36,8 @@ class Parser:
         """
         self.name = name
         self.parser_id = id
-        self.titles_cache_period = titles_cache_period
-        self.genres_cache_period = genres_cache_period
+        self.titles_cache_period = settings.titles_cache_hours
+        self.genres_cache_period = settings.genres_cache_hours
         self.functions = functions
 
     async def get_title(self, db_title: TitleModel, background_tasks: BackgroundTasks, db: AsyncSession, current_user: UserModel, service: CacheService = Depends(Provide[Container.service])) -> Title:
@@ -261,8 +262,17 @@ class Parser:
             db_genres.append(genre)
         return db_genres
 
+    async def parser_expired(self, service: CacheService = Depends(Provide[Container.service])) -> bool:
+        return await service.expire_status(parser_id=self.parser_id)
+
+    async def get_service(self, service: CacheService = Depends(Provide[Container.service])) -> CacheService:
+        return service
+
+    async def get_parser_expires_in(self, service: CacheService = Depends(Provide[Container.service])) -> int:
+        return await service.get_expires_in(parser_id=self.parser_id)
+
 
 container = Container()
-container.config.redis_host.from_env("REDIS_HOST", "localhost")
-container.config.redis_password.from_env("REDIS_PASSWORD", "")
+container.config.redis_host.from_value(settings.REDIS_HOST)
+container.config.redis_password.from_value(settings.REDIS_PASSWORD)
 container.wire(modules=[__name__])

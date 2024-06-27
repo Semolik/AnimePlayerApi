@@ -28,23 +28,15 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
-    SQLALCHEMY_DATABASE_URI: PostgresDsn = None
 
-    @validator("SQLALCHEMY_DATABASE_URI", pre=True)
-    def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
-        if isinstance(v, str):
-            return v
-        return PostgresDsn.build(
-            scheme=values.get("POSTGRES_SCHEME"),
-            username=values.get("POSTGRES_USER"),
-            password=values.get("POSTGRES_PASSWORD"),
-            host=values.get("POSTGRES_SERVER"),
-            path=values.get('POSTGRES_DB') or '',
-        )
+    REDIS_HOST: str
+    REDIS_PASSWORD: str = ""
 
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
     SHIKIMORI_EXPIRATION_HOURS: int = 24
+    titles_cache_hours: int = 12
+    genres_cache_hours: int = 24 * 7
     USERS_OPEN_REGISTRATION: bool = True
 
     shikimori_kinds: List[str] = ["tv", "movie", "ova", "ona", "special", "tv_special",

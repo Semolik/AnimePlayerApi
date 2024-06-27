@@ -1,8 +1,13 @@
 FROM python:3.10-slim
 
-WORKDIR /app
+WORKDIR /usr/src
 
-COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
-CMD uvicorn src.main:app --host 0.0.0.0 --reload --port 8000
+RUN pip install --upgrade pip
+COPY ./requirements.txt .
+RUN pip install -r requirements.txt
+
+# copy project
+COPY . .

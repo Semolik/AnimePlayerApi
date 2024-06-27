@@ -34,7 +34,7 @@ To start the API using Docker, run the following command:
 
 ### Parsers
 
-Parsers for fetching anime data are located in the src/parsers directory. You can add or modify parsers as needed to support different sources or improve the existing ones.
+Parsers for fetching anime data are located in the src/parsers directory. You can add or modify parsers as needed to support different sources or improve the existing ones. <b>Modules within the parsers directory are imported automatically</b>, ensuring that any new parsers added to this directory are immediately available for use without additional configuration.
 
 ### Usage
 

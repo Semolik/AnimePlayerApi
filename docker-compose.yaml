@@ -1,18 +1,39 @@
 services:
   app:
     container_name: app
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     ports:
       - 8000:8000
     env_file:
       - .env
+    environment:
+      - REDIS_HOST=redis
+    command: uvicorn src.main:app --host 0.0.0.0 --reload --port 8000
     depends_on:
       database:
         condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
-      - .:/app
+      - .:/usr/src
+
+  redis:
+    image: redis:latest
+
+  worker:
+    build: .
+    volumes:
+      - .:/usr/src
+    command: celery -A src.worker.celery worker
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_HOST=redis
+    depends_on:
+      - app
+      - redis
 
   database:
     image: library/postgres:alpine
@@ -28,8 +49,3 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-  redis:
-    image: redis:latest
-    restart: always
-    env_file:
-      - .env

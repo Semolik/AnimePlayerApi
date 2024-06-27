@@ -196,7 +196,5 @@ functions = ParserFunctions(
 parser = Parser(
     name="Animevost",
     id="animevost",
-    functions=functions,
-    titles_cache_period=12,
-    genres_cache_period=24 * 7
+    functions=functions
 )
