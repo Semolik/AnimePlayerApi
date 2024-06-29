@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from src.crud.titles_crud import TitlesCrud
 from src.crud.genres_crud import GenresCrud
 from src.db.session import get_async_session, AsyncSession
-from src.schemas.parsers import FavoriteTitle, Genre, ParserInfo, Title, TitleShort
+from src.schemas.parsers import FavoriteTitle, Genre, ParserInfo, Title, TitleShort, TitlesPage
 from src.parsers import parsers, parsers_dict
 from src.users_controller import optional_current_user, current_active_user
 api_router = APIRouter()
@@ -17,11 +17,20 @@ ParserId = Literal[tuple([parser.parser_id for parser in parsers])]  # nopep8 # 
 
 
 @parsers_router.get("", response_model=list[ParserInfo])
-async def get_parsers():
-    return [ParserInfo(id=parser.parser_id, name=parser.name) for parser in parsers]
+async def get_parsers(background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_async_session)):
+    parsers_info = []
+    for parser in parsers:
+        last_titles = await parsers_dict[parser.parser_id].get_titles(
+            page=1,
+            background_tasks=background_tasks,
+            db=db
+        )
+        parsers_info.append(ParserInfo(id=parser.parser_id,
+                            name=parser.name, last_titles=last_titles))
+    return parsers_info
 
 
-@parsers_router.get("/{parser_id}/titles", response_model=list[TitleShort])
+@parsers_router.get("/{parser_id}/titles", response_model=TitlesPage)
 async def get_titles(parser_id: ParserId, background_tasks: BackgroundTasks, page: int = Query(1, ge=1), db: AsyncSession = Depends(get_async_session)):
     parser = parsers_dict[parser_id]
     return await parser.get_titles(
@@ -76,7 +85,7 @@ async def get_title(background_tasks: BackgroundTasks, title_id: UUID, db: Async
     )
 
 
-@genres_router.get("/genres/{genre_id}", response_model=list[TitleShort])
+@genres_router.get("/genres/{genre_id}", response_model=TitlesPage)
 async def get_genre(background_tasks: BackgroundTasks, genre_id: UUID, page: int = Query(1, ge=1), db: AsyncSession = Depends(get_async_session)):
     existing_genre = await GenresCrud(db).get_genre_by_id(genre_id=genre_id)
     if not existing_genre:

@@ -1,7 +1,7 @@
 import re
 import aiohttp
 from src.utils.parsers import Parser, ParserFunctions
-from src.schemas.parsers import LinkParsedTitle, ParsedTitle, ParsedTitleShort, ParsedGenre
+from src.schemas.parsers import LinkParsedTitle, ParsedTitle, ParsedTitleShort, ParsedGenre, ParsedTitlesPage
 from fastapi import HTTPException
 from bs4 import BeautifulSoup
 
@@ -42,6 +42,15 @@ def get_en_title(name):
     return en_name
 
 
+def get_pages_count(soup: BeautifulSoup) -> int:
+    dle_content = soup.select_one('#dle-content')
+    if not dle_content:
+        raise HTTPException(
+            status_code=404, detail="Animevost website structure has changed.")
+    pagination = dle_content.select('div.block_2 > table > tr > td > a')
+    return int(pagination[-1].text)
+
+
 async def get_titles(page: int) -> list[ParsedTitleShort]:
     async with aiohttp.ClientSession() as session:
         url = WEBSITE_URL
@@ -50,7 +59,12 @@ async def get_titles(page: int) -> list[ParsedTitleShort]:
         async with session.get(url) as response:
             html = await response.text()
             soup = BeautifulSoup(html, 'html.parser')
-            return get_titles_from_page(soup)
+            titles = get_titles_from_page(soup)
+            if len(titles) == 0:
+                raise HTTPException(
+                    status_code=404, detail="No titles found on page.")
+            pages = get_pages_count(soup)
+            return ParsedTitlesPage(titles=titles, total_pages=pages)
 
 
 async def get_title_related(full_title: str, title_id: int) -> list[LinkParsedTitle]:
@@ -170,7 +184,7 @@ def get_titles_from_page(soup: BeautifulSoup) -> list[ParsedTitleShort]:
     return result
 
 
-async def get_genre(genre_website_id: str, page: int) -> list[ParsedTitleShort]:
+async def get_genre(genre_website_id: str, page: int) -> ParsedTitlesPage:
     async with aiohttp.ClientSession() as session:
         url = f'{WEBSITE_URL}/zhanr/{genre_website_id}'
         if page > 1:
@@ -178,7 +192,12 @@ async def get_genre(genre_website_id: str, page: int) -> list[ParsedTitleShort]:
         async with session.post(url) as response:
             html = await response.text()
             soup = BeautifulSoup(html, 'html.parser')
-            return get_titles_from_page(soup)
+            titles = get_titles_from_page(soup)
+            if len(titles) == 0:
+                raise HTTPException(
+                    status_code=404, detail="No titles found on page.")
+            pages = get_pages_count(soup)
+            return ParsedTitlesPage(titles=titles, total_pages=pages)
 
 functions = ParserFunctions(
     get_titles=get_titles, get_title=get_title, get_genres=get_genres, get_genre=get_genre)

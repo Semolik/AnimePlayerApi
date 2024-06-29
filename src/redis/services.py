@@ -3,7 +3,7 @@ import json
 from uuid import UUID
 from aioredis import Redis
 
-from src.schemas.parsers import ParsedGenre, ParsedTitleShort, ShikimoriTitle
+from src.schemas.parsers import ParsedGenre, ParsedTitleShort, ParsedTitlesPage, ShikimoriTitle
 
 
 class CacheService:
@@ -28,10 +28,11 @@ class CacheService:
             return 0
         return seconds
 
-    async def get_genre_titles(self, parser_id: str, genre_id: UUID, page: int):
+    async def get_genre_titles(self, parser_id: str, genre_id: UUID, page: int) -> ParsedTitlesPage:
         data = await self._redis.get(f"{parser_id}:titles:{genre_id}:{page}")
         if data:
-            return [ParsedTitleShort(**title) for title in json.loads(data)]
+            data = json.loads(data)
+            return ParsedTitlesPage(titles=[ParsedTitleShort(**title) for title in data['titles']], total_pages=data['total_pages'])
 
     async def get_genres(self, parser_id: str):
         data = await self._redis.get(f"{parser_id}:genres")
@@ -41,16 +42,17 @@ class CacheService:
     async def set_genres(self, parser_id: str, genres: dict):
         return await self._redis.set(f"{parser_id}:genres", json.dumps(genres))
 
-    async def set_genre_titles(self, parser_id: str, genre_id: UUID, page: int, titles: dict):
-        return await self._redis.set(f"{parser_id}:titles:{genre_id}:{page}", json.dumps(titles))
+    async def set_genre_titles(self, parser_id: str, genre_id: UUID, page: int, titles_page: dict):
+        return await self._redis.set(f"{parser_id}:titles:{genre_id}:{page}", json.dumps(titles_page))
 
-    async def get_titles(self, parser_id: str, page: int) -> list[ParsedTitleShort]:
+    async def get_titles(self, parser_id: str, page: int) -> ParsedTitlesPage:
         data = await self._redis.get(f"{parser_id}:titles:{page}")
         if data:
-            return [ParsedTitleShort(**title) for title in json.loads(data)]
+            data = json.loads(data)
+            return ParsedTitlesPage(titles=[ParsedTitleShort(**title) for title in data['titles']], total_pages=data['total_pages'])
 
-    async def set_titles(self, parser_id: str, page: int, titles: dict):
-        return await self._redis.set(f"{parser_id}:titles:{page}", json.dumps(titles))
+    async def set_titles(self, parser_id: str, page: int, titles_page: dict):
+        return await self._redis.set(f"{parser_id}:titles:{page}", json.dumps(titles_page))
 
     async def get_title(self, parser_id: str, title_id: UUID):
         data = await self._redis.get(f"{parser_id}:title:{title_id}")

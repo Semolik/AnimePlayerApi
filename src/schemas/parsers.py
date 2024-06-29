@@ -18,6 +18,11 @@ class ParsedTitleShort(LinkParsedTitle):
     additional_info: str | None = None
 
 
+class ParsedTitlesPage(BaseModel):
+    titles: list[ParsedTitleShort]
+    total_pages: int
+
+
 class ParsedTitle(ParsedTitleShort):
     description: str | None = None
     series: str | None = None
@@ -53,6 +58,11 @@ class TitleShort(FavoriteTitle):
         from_attributes = True
 
 
+class TitlesPage(BaseModel):
+    titles: list[TitleShort]
+    total_pages: int
+
+
 class ParsedGenre(BaseModel):
     name: str
     id_on_website: str
@@ -84,6 +94,7 @@ class Title(TitleShort):
 class ParserInfo(BaseModel):
     id: str
     name: str
+    last_titles: list[TitleShort]
 
     class Config:
         from_attributes = True

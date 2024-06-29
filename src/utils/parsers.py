@@ -7,7 +7,7 @@ from fastapi.logger import logger
 from src.crud.genres_crud import GenresCrud
 from src.db.session import AsyncSession
 from src.crud.titles_crud import TitlesCrud
-from src.schemas.parsers import Genre, LinkParsedTitle, ParsedGenre, ParsedTitle, ParsedTitleShort, Title, TitleLink, TitleShort, ShikimoriTitle
+from src.schemas.parsers import Genre, LinkParsedTitle, ParsedGenre, ParsedTitle, ParsedTitleShort, ParsedTitlesPage, Title, TitleLink, TitleShort, ShikimoriTitle, TitlesPage
 from src.redis.services import CacheService
 from src.redis.containers import Container
 from src.models.parsers import Title as TitleModel, Genre as GenreModel
@@ -18,10 +18,10 @@ from src.core.config import settings
 
 @dataclass
 class ParserFunctions:
-    get_titles: Callable[[int], List[ParsedTitleShort]]
+    get_titles: Callable[[int], ParsedTitlesPage]
     get_title: Callable[[str], ParsedTitleShort]
     get_genres: Callable[[], List[ParsedGenre]]
-    get_genre: Callable[[str, int], None]
+    get_genre: Callable[[str, int], ParsedTitlesPage]
 
 
 class Parser:
@@ -51,11 +51,11 @@ class Parser:
 
     async def get_titles(self, page: int, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> List[Title]:
         is_expired = await service.expire_status(parser_id=self.parser_id)
-        cached_titles = await service.get_titles(parser_id=self.parser_id, page=page)
-        if is_expired and cached_titles:
+        cached_titles_page = await service.get_titles(parser_id=self.parser_id, page=page)
+        if is_expired and cached_titles_page:
             background_tasks.add_task(self.update_titles, page, service)
-        titles = cached_titles if cached_titles else await self.update_titles(page=page, service=service)
-        return await self._prepare_titles(titles=titles, db=db, background_tasks=background_tasks)
+        titles_page = cached_titles_page if cached_titles_page else await self.update_titles(page=page, service=service)
+        return await self._prepare_titles(titles_page=titles_page, db=db, background_tasks=background_tasks)
 
     async def get_genres(self, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> List[Genre]:
         genres_expired = await service.genres_expire_status(parser_id=self.parser_id)
@@ -70,12 +70,12 @@ class Parser:
     async def get_genre(self, db_genre: GenreModel, page: int, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])):
         genre_id = db_genre.id
         is_expired = await service.expire_status(parser_id=self.parser_id)
-        cached_titles = await service.get_genre_titles(parser_id=self.parser_id, genre_id=genre_id, page=page)
-        if is_expired and cached_titles:
+        cached_titles_page = await service.get_genre_titles(parser_id=self.parser_id, genre_id=genre_id, page=page)
+        if is_expired and cached_titles_page:
             background_tasks.add_task(self.update_genre, genre_id=genre_id, page=page,
                                       service=service, genre_website_id=db_genre.id_on_website)
-        titles = cached_titles if cached_titles else await self.update_genre(genre_id=genre_id, page=page, service=service, raise_error=True, genre_website_id=db_genre.id_on_website)
-        return await self._prepare_titles(titles=titles, db=db, background_tasks=background_tasks)
+        titles_page = cached_titles_page if cached_titles_page else await self.update_genre(genre_id=genre_id, page=page, service=service, raise_error=True, genre_website_id=db_genre.id_on_website)
+        return await self._prepare_titles(titles_page=titles_page, db=db, background_tasks=background_tasks)
 
     async def _get_cached_title(self, title_id: UUID, service: CacheService):
         is_expired = await service.expire_status(parser_id=self.parser_id)
@@ -122,9 +122,9 @@ class Parser:
 
     async def update_titles(self, page: int, service: CacheService, raise_error: bool = False) -> List[ParsedTitleShort]:
         try:
-            titles = await self.functions.get_titles(page)
-            await self._cache_titles(titles=titles, page=page, service=service)
-            return titles
+            titles_page = await self.functions.get_titles(page)
+            await self._cache_titles(titles_page=titles_page, page=page, service=service)
+            return titles_page
         except HTTPException as e:
             if raise_error:
                 raise e
@@ -134,8 +134,8 @@ class Parser:
                 raise HTTPException(
                     status_code=500, detail='Failed to fetch titles.')
 
-    async def _cache_titles(self, titles: List[ParsedTitleShort], page: int, service: CacheService):
-        await service.set_titles(titles=[title.model_dump() for title in titles], page=page, parser_id=self.parser_id)
+    async def _cache_titles(self, titles_page: ParsedTitlesPage, page: int, service: CacheService):
+        await service.set_titles(titles_page=titles_page.model_dump(), page=page, parser_id=self.parser_id)
         await self.update_expire_status(service=service)
 
     async def update_title_in_db(self, title_id: UUID, db: AsyncSession, title_data: ParsedTitle = None, raise_error: bool = False) -> Title:
@@ -187,9 +187,9 @@ class Parser:
 
     async def update_genre(self, genre_website_id: str, genre_id: UUID, page: int, service: CacheService, raise_error: bool = False) -> List[ParsedTitleShort]:
         try:
-            titles = await self.functions.get_genre(genre_website_id, page)
-            await service.set_genre_titles(parser_id=self.parser_id, genre_id=genre_id, page=page, titles=[title.model_dump() for title in titles])
-            return titles
+            titles_page = await self.functions.get_genre(genre_website_id, page)
+            await service.set_genre_titles(parser_id=self.parser_id, genre_id=genre_id, page=page, titles_page=titles_page.model_dump())
+            return titles_page
         except HTTPException as e:
             if raise_error:
                 raise e
@@ -223,11 +223,11 @@ class Parser:
                 TitleLink.model_validate(existing_title))
         return related_titles_objs
 
-    async def _prepare_titles(self, titles: List[ParsedTitleShort], db: AsyncSession, background_tasks: BackgroundTasks) -> List[Title]:
+    async def _prepare_titles(self, titles_page: ParsedTitlesPage, db: AsyncSession, background_tasks: BackgroundTasks) -> TitlesPage:
         db_titles = []
-        existing_titles = await TitlesCrud(db).get_titles_by_website_ids(website_ids=[title.id_on_website for title in titles])
+        existing_titles = await TitlesCrud(db).get_titles_by_website_ids(website_ids=[title.id_on_website for title in titles_page.titles])
         existing_ids_set = {title.id_on_website for title in existing_titles}
-        for parsed_title in titles:
+        for parsed_title in titles_page.titles:
             if parsed_title.id_on_website not in existing_ids_set:
                 title = await TitlesCrud(db).create_title(parsed_title, self.parser_id)
             else:
@@ -240,7 +240,7 @@ class Parser:
             title_obj.additional_info = parsed_title.additional_info
             title_obj.en_name = parsed_title.en_name
             db_titles.append(title_obj)
-        return db_titles
+        return TitlesPage(titles=db_titles, total_pages=titles_page.total_pages)
 
     async def _prepare_genres_names(self, genres_names: List[str], db: AsyncSession, background_tasks: BackgroundTasks) -> List[Genre]:
         all_genres = await self.get_genres(background_tasks=background_tasks, db=db)
