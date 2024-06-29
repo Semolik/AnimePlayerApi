@@ -26,3 +26,7 @@ class GenresCrud(BaseCRUD):
     async def get_genre_by_id(self, genre_id: UUID) -> Genre:
         query = select(Genre).where(Genre.id == genre_id)
         return (await self.db.execute(query)).scalar()
+
+    async def get_genres(self, parser_id: str) -> list[Genre]:
+        query = select(Genre).where(Genre.parser_id == parser_id)
+        return (await self.db.execute(query)).scalars().all()

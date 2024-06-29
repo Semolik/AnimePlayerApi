@@ -10,11 +10,15 @@ def import_all_modules():
         if filename.endswith(".py") and filename != "__init__.py" and filename != "example_parser.py":
             module_name = filename[:-3]
             module_path = os.path.join(directory, filename)
-            spec = importlib.util.spec_from_file_location(
-                module_name, module_path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            modules.append(module.parser)
+            try:
+                spec = importlib.util.spec_from_file_location(
+                    module_name, module_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                modules.append(module.parser)
+                print(f"Imported parser: {module.parser.parser_id}")
+            except Exception as e:
+                logger.error(f"Error importing parser {module_name}: {e}")
     return modules
 
 

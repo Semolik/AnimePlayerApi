@@ -24,7 +24,6 @@ class CacheService:
 
     async def get_expires_in(self, parser_id: str) -> int:
         seconds = await self._redis.ttl(f"{parser_id}:expire")
-        print(f"Expires in {seconds} seconds")
         if seconds < 0:
             return 0
         return seconds

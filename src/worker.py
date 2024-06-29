@@ -28,7 +28,6 @@ def update_parser_wrapper(parser_id: str):
 async def check_parser(parser_id: str):
     parser: Parser = parsers_dict.get(parser_id)
     timeout = await parser.get_parser_expires_in()
-    print(f"Timeout for {parser_id}: {timeout}")
     if timeout <= 0:
         print(f"Updating {parser_id}")
         await update_parser(parser)

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable, List
 from uuid import UUID
-from fastapi import BackgroundTasks, Depends
+from fastapi import BackgroundTasks, Depends, HTTPException
 from dependency_injector.wiring import Provide
 from fastapi.logger import logger
 from src.crud.genres_crud import GenresCrud
@@ -110,8 +110,9 @@ class Parser:
             if hasattr(title_db_obj, key):
                 setattr(title_db_obj, key, value)
         title_db_obj.shikimori = shikimori_title
-        related_titles = await self._prepare_related_titles(title_id=db_title.id, related_titles=title_obj.related_titles, db=db)
-        title_db_obj.related = related_titles
+        title_db_obj.related = await self._prepare_related_titles(title_id=db_title.id, related_titles=title_obj.related_titles, db=db)
+        title_db_obj.recommended = await self._prepare_titles(
+            titles=title_obj.recommended_titles, db=db, background_tasks=background_tasks)
         title_db_obj.genres = await self._prepare_genres_names(
             genres_names=title_obj.genres_names, db=db, background_tasks=background_tasks)
         if current_user:
@@ -124,23 +125,22 @@ class Parser:
             titles = await self.functions.get_titles(page)
             await self._cache_titles(titles=titles, page=page, service=service)
             return titles
+        except HTTPException as e:
+            if raise_error:
+                raise e
         except Exception as e:
             logger.error(f'Failed to fetch titles: {e}')
             if raise_error:
-                raise e
+                raise HTTPException(
+                    status_code=500, detail='Failed to fetch titles.')
 
     async def _cache_titles(self, titles: List[ParsedTitleShort], page: int, service: CacheService):
         await service.set_titles(titles=[title.model_dump() for title in titles], page=page, parser_id=self.parser_id)
         await self.update_expire_status(service=service)
 
     async def update_title_in_db(self, title_id: UUID, db: AsyncSession, title_data: ParsedTitle = None, raise_error: bool = False) -> Title:
-        try:
-            db_title = await TitlesCrud(db).get_title_by_id(title_id=title_id)
-            await TitlesCrud(db).update_title(db_title=db_title, title=title_data)
-        except Exception as e:
-            logger.error(f'Failed to fetch title: {e}')
-            if raise_error:
-                raise e
+        db_title = await TitlesCrud(db).get_title_by_id(title_id=title_id)
+        await TitlesCrud(db).update_title(db_title=db_title, title=title_data)
 
     async def update_expire_status(self, service: CacheService = Depends(Provide[Container.service])):
         expired = await service.expire_status(parser_id=self.parser_id)
@@ -156,10 +156,14 @@ class Parser:
             await service.set_title(title_id=title_id, title=title.model_dump(), parser_id=self.parser_id)
             await self.update_expire_status(service=service)
             return title
+        except HTTPException as e:
+            if raise_error:
+                raise e
         except Exception as e:
             logger.error(f'Failed to fetch title: {e}')
             if raise_error:
-                raise e
+                raise HTTPException(
+                    status_code=500, detail='Failed to fetch title.')
 
     async def update_genres(self, service: CacheService, raise_error: bool = False) -> List[str]:
         try:
@@ -172,20 +176,28 @@ class Parser:
                 hours=self.genres_cache_period
             )
             return genres
+        except HTTPException as e:
+            if raise_error:
+                raise e
         except Exception as e:
             logger.error(f'Failed to fetch genres: {e}')
             if raise_error:
-                raise e
+                raise HTTPException(
+                    status_code=500, detail='Failed to fetch genres.')
 
     async def update_genre(self, genre_website_id: str, genre_id: UUID, page: int, service: CacheService, raise_error: bool = False) -> List[ParsedTitleShort]:
         try:
             titles = await self.functions.get_genre(genre_website_id, page)
             await service.set_genre_titles(parser_id=self.parser_id, genre_id=genre_id, page=page, titles=[title.model_dump() for title in titles])
             return titles
+        except HTTPException as e:
+            if raise_error:
+                raise e
         except Exception as e:
             logger.error(f'Failed to fetch genre titles: {e}')
             if raise_error:
-                raise e
+                raise HTTPException(
+                    status_code=500, detail='Failed to fetch genre titles.')
 
     async def title_data_changed(self, title_data: ParsedTitleShort, db_title: Title) -> bool:
         for key, value in title_data.model_dump().items():
