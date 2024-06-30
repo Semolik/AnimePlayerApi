@@ -54,7 +54,8 @@ class Parser:
         cached_titles_page = await service.get_titles(parser_id=self.parser_id, page=page)
         if is_expired and cached_titles_page:
             background_tasks.add_task(self.update_titles, page, service)
-        titles_page = cached_titles_page if cached_titles_page else await self.update_titles(page=page, service=service)
+        titles_page = await self.update_titles(page=page, service=service, raise_error=True)
+        # titles_page = cached_titles_page if cached_titles_page else await self.update_titles(page=page, service=service, raise_error=True)
         return await self._prepare_titles(titles_page=titles_page, db=db, background_tasks=background_tasks)
 
     async def get_genres(self, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> List[Genre]:
@@ -224,6 +225,7 @@ class Parser:
         return related_titles_objs
 
     async def _prepare_titles(self, titles_page: ParsedTitlesPage, db: AsyncSession, background_tasks: BackgroundTasks) -> TitlesPage:
+
         db_titles = []
         existing_titles = await TitlesCrud(db).get_titles_by_website_ids(website_ids=[title.id_on_website for title in titles_page.titles])
         existing_ids_set = {title.id_on_website for title in existing_titles}

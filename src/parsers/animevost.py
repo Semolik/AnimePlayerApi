@@ -46,12 +46,12 @@ def get_pages_count(soup: BeautifulSoup) -> int:
     dle_content = soup.select_one('#dle-content')
     if not dle_content:
         raise HTTPException(
-            status_code=404, detail="Animevost website structure has changed.")
+            status_code=404, detail="Page not found on animevost.")
     pagination = dle_content.select('div.block_2 > table > tr > td > a')
     return int(pagination[-1].text)
 
 
-async def get_titles(page: int) -> list[ParsedTitleShort]:
+async def get_titles(page: int) -> ParsedTitlesPage:
     async with aiohttp.ClientSession() as session:
         url = WEBSITE_URL
         if page > 1:

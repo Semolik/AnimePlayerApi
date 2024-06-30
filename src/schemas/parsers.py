@@ -16,6 +16,7 @@ class ParsedTitleShort(LinkParsedTitle):
     related_titles: list[LinkParsedTitle] = []
     recommended_titles: list['ParsedTitleShort'] = []
     additional_info: str | None = None
+    genres_names: list[str] = []
 
 
 class ParsedTitlesPage(BaseModel):
@@ -27,7 +28,6 @@ class ParsedTitle(ParsedTitleShort):
     description: str | None = None
     series: str | None = None
     year: str
-    genres_names: list[str]
     kind: Literal[tuple(settings.shikimori_kinds)] | None = None  # nopep8 # type: ignore
 
 

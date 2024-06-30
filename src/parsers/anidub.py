@@ -1,5 +1,6 @@
 import aiohttp
-from src.schemas.parsers import Genre, ParsedGenre, ParsedTitle, ParsedTitleShort
+import requests
+from src.schemas.parsers import Genre, ParsedGenre, ParsedTitle, ParsedTitleShort, ParsedTitlesPage, TitlesPage
 from src.redis.services import CacheService
 from src.utils.parsers import Parser, ParserFunctions
 from fastapi import BackgroundTasks, HTTPException
@@ -8,6 +9,7 @@ from bs4 import BeautifulSoup
 from src.crud.genres_crud import GenresCrud
 from typing import List
 WEBSITE_URL = "https://anidub.life"
+API_URL = "https://isekai.anidub.fun"
 LINK_SPLITTER = "~"
 
 kinds = {
@@ -18,7 +20,35 @@ kinds = {
 }
 
 
-async def get_titles(page: int) -> list[ParsedTitleShort]:
+async def get_main_page(session: aiohttp.ClientSession) -> list[ParsedTitleShort]:
+    async with session.get(f'{API_URL}/mobile-api.php?name=main_posts') as response:
+        titles_json = await response.json()
+        titles = []
+        for title in titles_json:
+            xfields = title['xfields'].split('||')
+            genres_names = []
+            img = None
+            if xfields:
+                for xfield in xfields:
+                    parts = xfield.split('|')
+                    if 'genre' == parts[0]:
+                        genres_names = parts[1].split(', ')
+                    if 'upposter2' == parts[0]:
+                        img = f'{WEBSITE_URL}/uploads/posts/{parts[1]}'
+
+            titles.append(ParsedTitleShort(
+                id_on_website=title['alt_name'],
+                name=get_original_title(title['title']),
+                image_url=img,
+                en_name=get_en_title(title['title']),
+                additional_info=series_from_title(title['title']),
+                poster=img,
+                genres_names=genres_names
+            ))
+        return titles
+
+
+async def get_titles(page: int) -> ParsedTitlesPage:
     async with aiohttp.ClientSession() as session:
         url = WEBSITE_URL
         if page > 1:
@@ -26,7 +56,15 @@ async def get_titles(page: int) -> list[ParsedTitleShort]:
         async with session.get(url) as response:
             html = await response.text()
             soup = BeautifulSoup(html, 'html.parser')
-            return get_titles_from_page(soup)
+            pages_count = get_pages_count(soup)
+            titles = get_titles_from_page(soup) if page > 1 else await get_main_page(session)
+            if not titles or not pages_count:
+                raise HTTPException(
+                    status_code=404, detail="Page not found on anidub.")
+            return ParsedTitlesPage(
+                titles=titles,
+                total_pages=pages_count
+            )
 
 
 def get_original_title(name: str) -> str:
@@ -85,6 +123,17 @@ def get_titles_from_page(soup: BeautifulSoup) -> list[ParsedTitleShort]:
     for title in titles:
         parsed_titles.append(get_title_data(title))
     return parsed_titles
+
+
+def get_pages_count(soup):
+    dle_content = soup.select_one('#dle-content')
+    if not dle_content:
+        return
+    pagination = dle_content.select(
+        'div.bottom-nav > div.pagi-nav > div.navigation > a')
+    if not pagination:
+        return
+    return int(pagination[-1].text)
 
 
 async def get_title(title_id: str) -> ParsedTitle:
@@ -154,15 +203,23 @@ async def get_title(title_id: str) -> ParsedTitle:
             )
 
 
-async def get_genre(genre_website_id: str, page: int) -> list[ParsedTitleShort]:
+async def get_genre(genre_website_id: str, page: int) -> ParsedTitlesPage:
     async with aiohttp.ClientSession() as session:
-        url = f'{WEBSITE_URL}/xfsearch/genre/{genre_website_id}/'
+        url = f'{WEBSITE_URL}/xfsearch/genre/{requests.utils.requote_uri(genre_website_id)}/'
         if page > 1:
             url += f'page/{page}/'
         async with session.get(url) as response:
             html = await response.text()
             soup = BeautifulSoup(html, 'html.parser')
-            return get_titles_from_page(soup)
+            titles = get_titles_from_page(soup)
+            pages_count = get_pages_count(soup)
+            if not titles or not pages_count:
+                raise HTTPException(
+                    status_code=404, detail="Page not found on anidub.")
+            return ParsedTitlesPage(
+                titles=titles,
+                total_pages=pages_count
+            )
 
 functions = ParserFunctions(
     get_titles=get_titles, get_title=get_title, get_genres=None, get_genre=get_genre)
@@ -173,16 +230,17 @@ class AnidubParser(Parser):
         genres = await GenresCrud(db).get_genres(parser_id=self.parser_id)
         return genres
 
-    async def _prepare_genres_names(self, genres_names: List[str], db: AsyncSession, background_tasks: BackgroundTasks) -> List[Genre]:
-        db_genres = []
-        for genre_name in genres_names:
-            db_genre = await GenresCrud(db).get_genre_by_website_id(website_id=genre_name)
+    async def _prepare_titles(self, titles_page: ParsedTitlesPage, db: AsyncSession, background_tasks: BackgroundTasks) -> TitlesPage:
+        for title in titles_page.titles:
+            if not title.genres_names:
+                continue
+            for genre_name in title.genres_names:
+                db_genre = await GenresCrud(db).get_genre_by_website_id(website_id=genre_name)
             if not db_genre:
                 db_genre = await GenresCrud(db).create_genre(genre=ParsedGenre(
                     name=genre_name, id_on_website=genre_name
                 ), parser_id=self.parser_id)
-            db_genres.append(db_genre)
-        return db_genres
+        return await super()._prepare_titles(titles_page, db, background_tasks)
 
 
 parser = AnidubParser(
