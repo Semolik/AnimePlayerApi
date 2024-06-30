@@ -54,8 +54,7 @@ class Parser:
         cached_titles_page = await service.get_titles(parser_id=self.parser_id, page=page)
         if is_expired and cached_titles_page:
             background_tasks.add_task(self.update_titles, page, service)
-        titles_page = await self.update_titles(page=page, service=service, raise_error=True)
-        # titles_page = cached_titles_page if cached_titles_page else await self.update_titles(page=page, service=service, raise_error=True)
+        titles_page = cached_titles_page if cached_titles_page else await self.update_titles(page=page, service=service, raise_error=True)
         return await self._prepare_titles(titles_page=titles_page, db=db, background_tasks=background_tasks)
 
     async def get_genres(self, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> List[Genre]:
