@@ -1,5 +1,6 @@
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import desc, func, select
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm import selectinload
 from src.crud.base import BaseCRUD
 from src.models.parsers import Episode, EpisodeProgress, CurrentEpisode, Title
@@ -24,15 +25,51 @@ class EpisodesCrud(BaseCRUD):
     async def get_current_episodes(self, user_id: UUID, page: int = 1, per_page: int = 10) -> list[tuple[Episode, int | None, str]]:
         end = page * per_page
         start = end - per_page
-        query = select(Episode, EpisodeProgress.progress, Title.parser_id).join(EpisodeProgress, isouter=True).join(
-            Title).join(CurrentEpisode).where(CurrentEpisode.user_id == user_id).order_by(Episode.number).options(selectinload(Episode.title))
+        # order by Episode.number
+        # last_title_episode_subquery = select(Episode.title_id, Episode.number).order_by(
+        #     Episode.number.desc()).limit(1).subquery()
+        # Subquery to get the latest episode for each title
+        latest_episode_subquery = (
+            select(
+                Episode.title_id,
+                func.max(Episode.number).label("latest_episode_number")
+            )
+            .group_by(Episode.title_id)
+            .subquery()
+        )
+
+        # Alias for easier referencing
+
+        query = (
+            select(
+                Episode,
+                EpisodeProgress.progress,
+                Title.parser_id
+            )
+            .outerjoin(EpisodeProgress)
+            .join(Title, Title.id == Episode.title_id)
+            .join(CurrentEpisode, (CurrentEpisode.episode_id == Episode.id) & (CurrentEpisode.user_id == user_id))
+            .join(latest_episode_subquery, (latest_episode_subquery.c.title_id == Episode.title_id) & (latest_episode_subquery.c.latest_episode_number == Episode.number))
+
+            # Filter out episodes with progress > 95
+            .filter((EpisodeProgress.progress <= 95) | (EpisodeProgress.progress.is_(None)))
+            # Order by title_id and then by number in descending order
+            .order_by(Episode.title_id, desc(Episode.number))
+            .options(selectinload(Episode.title))
+            .distinct(Episode.title_id)
+        )
+        # if episode is last in title and progress is 100 skip it
+        # query = select(Episode, EpisodeProgress.progress, Title.parser_id).join(EpisodeProgress, isouter=True).join(
+        #     Title).join(CurrentEpisode).where(CurrentEpisode.user_id == user_id).order_by(CurrentEpisode.timestamp).distinct(
+        #     Episode.title_id).options(selectinload(Episode.title)).filter(
+        #     (Episode.title_id != last_title_episode_subquery.c.title_id) | (Episode.number != last_title_episode_subquery.c.number) | (EpisodeProgress.progress != 100))
         query = query.slice(start, end)
         query = await self.db.execute(query)
         return query.all()
 
     async def get_current_title_episode(self, title_id: UUID, user_id: UUID) -> Episode:
-        query = select(Episode).join(CurrentEpisode).where(
-            Episode.title_id == title_id, CurrentEpisode.user_id == user_id)
+        query = select(CurrentEpisode).join(Episode, Episode.id == CurrentEpisode.episode_id).join(
+            Title, Title.id == Episode.title_id).where(Title.id == title_id, CurrentEpisode.user_id == user_id)
         return (await self.db.execute(query)).scalar()
 
     async def unset_current_title_episode(self, title_id: UUID, user_id: UUID):
