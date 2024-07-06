@@ -78,3 +78,9 @@ class CacheService:
         obj['last_fetch'] = obj['last_fetch'].isoformat()
         await self._redis.set(f"shikimori:{title_id}", json.dumps(obj))
         return title_data
+
+    async def get_link_by_hash(self, hash: str):
+        return await self._redis.get(f"link:{hash}")
+
+    async def set_link_by_hash(self, hash: str, link: str):
+        return await self._redis.set(f"link:{hash}", link)

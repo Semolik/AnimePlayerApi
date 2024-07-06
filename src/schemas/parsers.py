@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 import uuid
 from pydantic import BaseModel, field_validator, validator
@@ -24,10 +24,23 @@ class ParsedTitlesPage(BaseModel):
     total_pages: int
 
 
+class ParsedLink(BaseModel):
+    name: str
+    link: str
+
+
+class ParsedEpisode(BaseModel):
+    name: str
+    links: list[ParsedLink]
+    number: int
+    preview: str | None = None
+
+
 class ParsedTitle(ParsedTitleShort):
     description: str | None = None
-    series: str | None = None
+    series_info: str
     year: str
+    episodes_list: list[ParsedEpisode] = []
     kind: Literal[tuple(settings.shikimori_kinds)] | None = None  # nopep8 # type: ignore
 
 
@@ -67,6 +80,9 @@ class ParsedGenre(BaseModel):
     name: str
     id_on_website: str
 
+    class Config:
+        from_attributes = True
+
 
 class Genre(BaseModel):
     id: uuid.UUID
@@ -77,14 +93,33 @@ class Genre(BaseModel):
         from_attributes = True
 
 
+class Episode(BaseModel):
+    id: uuid.UUID
+    name: str
+    progress: int = 0
+    number: int
+    links: list[ParsedLink]
+    is_m3u8: bool = False
+    image_url: str | None = None
+
+
+class TitleEpisode(Episode):
+    title_id: uuid.UUID
+    image_url: str
+
+    class Config:
+        from_attributes = True
+
+
 class Title(TitleShort):
     description: str | None = None
-    series: str | None = None
+    series_info: str | None = None
     year: str | None = None
+    liked: bool = False
+    genres: list[Genre] = []
+    episodes: list[Episode] = []
     related: list[TitleLink] = []
     recommended: list[TitleShort] = []
-    genres: list[Genre] = []
-    liked: bool = False
     shikimori: ShikimoriTitle | None = None
 
     class Config:

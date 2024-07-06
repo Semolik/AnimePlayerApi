@@ -1,19 +1,21 @@
 from dataclasses import dataclass
 from typing import Callable, List
 from uuid import UUID
-from fastapi import BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from dependency_injector.wiring import Provide
 from fastapi.logger import logger
+from src.crud.episodes_crud import EpisodesCrud
 from src.crud.genres_crud import GenresCrud
 from src.db.session import AsyncSession
 from src.crud.titles_crud import TitlesCrud
-from src.schemas.parsers import Genre, LinkParsedTitle, ParsedGenre, ParsedTitle, ParsedTitleShort, ParsedTitlesPage, Title, TitleLink, TitleShort, ShikimoriTitle, TitlesPage
+from src.schemas.parsers import Genre, LinkParsedTitle, ParsedGenre, ParsedEpisode, ParsedTitle, ParsedTitleShort, ParsedTitlesPage, Episode, Title, TitleLink, TitleShort, ShikimoriTitle, TitlesPage
 from src.redis.services import CacheService
 from src.redis.containers import Container
 from src.models.parsers import Title as TitleModel, Genre as GenreModel
 from src.models.users import User as UserModel
 from src.utils.shikimori import Shikimori
 from src.core.config import settings
+from abc import ABC, abstractmethod
 
 
 @dataclass
@@ -24,7 +26,7 @@ class ParserFunctions:
     get_genre: Callable[[str, int], ParsedTitlesPage]
 
 
-class Parser:
+class Parser(ABC):
     def __init__(self, *, id: str, name: str, functions: ParserFunctions) -> None:
         """
         :param id: The identifier to be used as the prefix for the API routes.
@@ -40,13 +42,20 @@ class Parser:
         self.genres_cache_period = settings.genres_cache_hours
         self.functions = functions
 
-    async def get_title(self, db_title: TitleModel, background_tasks: BackgroundTasks, db: AsyncSession, current_user: UserModel, service: CacheService = Depends(Provide[Container.service])) -> Title:
+    def get_custom_router(self):
+        pass
+
+    async def get_title_data(self, db_title: TitleModel, service: CacheService) -> ParsedTitle:
         title_id = db_title.id
         is_expired, cached_title = await self._get_cached_title(title_id, service)
         if not cached_title or is_expired or not db_title.image_url:
             title_obj = await self._update_title_cache(db_title.id_on_website, title_id, service)
         else:
             title_obj = ParsedTitle(**cached_title)
+        return title_obj
+
+    async def get_title(self, db_title: TitleModel, background_tasks: BackgroundTasks, db: AsyncSession, current_user: UserModel, service: CacheService = Depends(Provide[Container.service])) -> Title:
+        title_obj = await self.get_title_data(db_title=db_title, service=service)
         return await self._prepare_title(title_obj=title_obj, db_title=db_title, db=db, background_tasks=background_tasks, current_user=current_user, service=service)
 
     async def get_titles(self, page: int, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> List[Title]:
@@ -57,14 +66,16 @@ class Parser:
         titles_page = cached_titles_page if cached_titles_page else await self.update_titles(page=page, service=service, raise_error=True)
         return await self._prepare_titles(titles_page=titles_page, db=db, background_tasks=background_tasks)
 
-    async def get_genres(self, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> List[Genre]:
-        genres_expired = await service.genres_expire_status(parser_id=self.parser_id)
+    async def get_genres_data(self, service: CacheService, background_tasks: BackgroundTasks) -> List[ParsedGenre]:
+        is_expired = await service.genres_expire_status(parser_id=self.parser_id)
         cached_genres = await service.get_genres(parser_id=self.parser_id)
-
-        if genres_expired and cached_genres:
+        if is_expired and cached_genres:
             background_tasks.add_task(self.update_genres, service)
-
         genres_objs = cached_genres if cached_genres else await self.update_genres(service, raise_error=True)
+        return genres_objs
+
+    async def get_genres(self, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> List[Genre]:
+        genres_objs = await self.get_genres_data(service=service, background_tasks=background_tasks)
         return await self._prepare_genres(genres=genres_objs, db=db)
 
     async def get_genre(self, db_genre: GenreModel, page: int, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])):
@@ -91,12 +102,36 @@ class Parser:
     async def _prepare_title_shikimori(self, title_obj: ParsedTitle, db_title: TitleModel, db: AsyncSession, service: CacheService, background_tasks: BackgroundTasks) -> tuple[TitleModel, ShikimoriTitle]:
         if not db_title.shikimori_fetched:
             shikimori_title = await Shikimori(service=service).get_title(title_obj)
-            db_title = await TitlesCrud(db).update_shikimori_info(db_title=db_title, shikimori_id=shikimori_title['id'] if shikimori_title else None)
+            db_title = await TitlesCrud(db).update_shikimori_info(db_title=db_title, shikimori_id=shikimori_title.data['id'] if shikimori_title else None)
         elif db_title.shikimori_id:
             shikimori_title = await Shikimori(service=service).get_shikimori_title(title_id=db_title.shikimori_id, background_tasks=background_tasks)
         else:
             shikimori_title = None
         return db_title, shikimori_title
+
+    async def get_parsed_episode(self, db_title: TitleModel, db_episode: Episode, service: CacheService) -> ParsedEpisode:
+        title_obj = await self.get_title_data(db_title=db_title, service=service)
+        return next(episode for episode in title_obj.episodes_list if episode.name == db_episode.name)
+
+    @abstractmethod
+    async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, db: AsyncSession, service: CacheService) -> Episode:
+        pass
+
+    async def prepare_episodes(self, title: ParsedTitle, title_id: UUID, db: AsyncSession, background_tasks: BackgroundTasks, service: CacheService, current_user: UserModel) -> List[Episode]:
+        result = []
+        user_id = current_user.id if current_user else None
+        episodes = await EpisodesCrud(db).get_episodes_by_title_id(title_id=title_id, user_id=user_id)
+        episodes_names = [episode[0].name for episode in episodes]
+        for series_item in title.episodes_list:
+            progress = 0
+            try:
+                episode_index = episodes_names.index(series_item.name)
+                db_episode = episodes[episode_index][0]
+                progress = episodes[episode_index][1] or 0
+            except ValueError:
+                db_episode = await EpisodesCrud(db).create_episode(name=series_item.name, title_id=title_id, number=series_item.number)
+            result.append(await self.prepare_episode(db_episode=db_episode, parsed_episode=series_item, progress=progress, db=db, service=service))
+        return result
 
     async def _prepare_title(self, title_obj: ParsedTitle, db_title: TitleModel, db: AsyncSession, background_tasks: BackgroundTasks, current_user: UserModel, service: CacheService) -> Title:
         if not db_title.image_url and title_obj.image_url:
@@ -109,10 +144,12 @@ class Parser:
         for key, value in title_obj.model_dump().items():
             if hasattr(title_db_obj, key):
                 setattr(title_db_obj, key, value)
+        title_db_obj.episodes = await self.prepare_episodes(title=title_obj, title_id=db_title.id, db=db, background_tasks=background_tasks, service=service, current_user=current_user)
         title_db_obj.shikimori = shikimori_title
         title_db_obj.related = await self._prepare_related_titles(title_id=db_title.id, related_titles=title_obj.related_titles, db=db)
-        title_db_obj.recommended = await self._prepare_titles(
-            titles=title_obj.recommended_titles, db=db, background_tasks=background_tasks)
+        recommended_titles = await self._prepare_titles(
+            titles_page=ParsedTitlesPage(titles=title_obj.recommended_titles, total_pages=0), db=db, background_tasks=background_tasks)
+        title_db_obj.recommended = recommended_titles.titles
         title_db_obj.genres = await self._prepare_genres_names(
             genres_names=title_obj.genres_names, db=db, background_tasks=background_tasks)
         if current_user:
@@ -165,7 +202,7 @@ class Parser:
                 raise HTTPException(
                     status_code=500, detail='Failed to fetch title.')
 
-    async def update_genres(self, service: CacheService, raise_error: bool = False) -> List[str]:
+    async def update_genres(self, service: CacheService, raise_error: bool = False) -> List[ParsedGenre]:
         try:
             genres = await self.functions.get_genres()
             await service.set_genres(genres=[
@@ -224,7 +261,6 @@ class Parser:
         return related_titles_objs
 
     async def _prepare_titles(self, titles_page: ParsedTitlesPage, db: AsyncSession, background_tasks: BackgroundTasks) -> TitlesPage:
-
         db_titles = []
         existing_titles = await TitlesCrud(db).get_titles_by_website_ids(website_ids=[title.id_on_website for title in titles_page.titles])
         existing_ids_set = {title.id_on_website for title in existing_titles}
@@ -243,14 +279,14 @@ class Parser:
             db_titles.append(title_obj)
         return TitlesPage(titles=db_titles, total_pages=titles_page.total_pages)
 
-    async def _prepare_genres_names(self, genres_names: List[str], db: AsyncSession, background_tasks: BackgroundTasks) -> List[Genre]:
-        all_genres = await self.get_genres(background_tasks=background_tasks, db=db)
+    async def _prepare_genres_names(self, genres_names: List[str], db: AsyncSession, background_tasks: BackgroundTasks, service: CacheService = Depends(Provide[Container.service])) -> List[Genre]:
+        all_genres = await self.get_genres_data(service=service, background_tasks=background_tasks)
         db_genres = []
         for genre_name in genres_names:
             genre = None
-            for genre_name in all_genres:
-                if genre_name.name.lower() == genre_name:
-                    genre = genre_name
+            for parsed_genre in all_genres:
+                if parsed_genre.name.lower() == genre_name:
+                    genre = parsed_genre
                     break
             if not genre:
                 continue

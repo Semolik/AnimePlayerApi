@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from src.crud.base import BaseCRUD
 from src.crud.genres_crud import GenresCrud
-from src.models.parsers import FavoriteTitle, Title, RelatedLink, RelatedTitle
+from src.models.parsers import Episode, EpisodeProgress, FavoriteTitle, Title, RelatedLink, RelatedTitle
 from src.schemas.parsers import LinkParsedTitle, ParsedTitleShort, ParsedTitle
 
 

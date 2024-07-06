@@ -11,6 +11,7 @@ from fastapi_users.authentication import (
 )
 from fastapi_users.db import SQLAlchemyUserDatabase
 from src.models.users import User
+from src.schemas.users import UserReadWithEmail
 from os import getenv
 from src.db.session import get_async_session, AsyncSession, get_async_session_context
 from src.schemas.users import UserCreate
@@ -19,6 +20,7 @@ from fastapi_users.authentication import CookieTransport
 from src.mail.conf import conf
 from fastapi_mail import FastMail, MessageSchema, MessageType
 from src.core.config import settings
+from src.worker import send_verify_email_wrapper, send_reset_password_email_wrapper
 
 
 async def get_user_db(session: AsyncSession = Depends(get_async_session)):
@@ -37,75 +39,20 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     async def on_after_forgot_password(
         self, user: User, token: str, request: Optional[Request] = None
     ):
-        print(
-            f'Пользователь {user.id} запросил сброс пароля, верефицирован ли он: {user.is_verified}')
+        print(f'User {user.id} has forgot password')
         if not user.is_verified:
+            print(
+                f'Sending forgot password email stopped for {user.id} because user is not verified')
             return
-        message = MessageSchema(
-            subject='Сброс пароля',
-            recipients=[user.email],
-            template_body={
-                'title': 'Сброс пароля',
-                'text': f'''<p>Здравствуйте, {user.name}</p>
-                            <p>
-                                Вы получили это письмо, так
-                                как был запрошен сброс
-                                пароля для вашей учетной
-                                записи. Если вы не
-                                запрашивали сброс пароля,
-                                пожалуйста, проигнорируйте
-                                это сообщение.
-                            </p>
-                            <p>
-                                Никогда не предоставляйте
-                                свои учетные данные и не
-                                переходите по незнакомым
-                                ссылкам.
-                            </p>
-                            <a
-                                href="{getenv('API_HOST', '')}/reset-password?token={token}"
-                                class="btn btn-primary"
-                                target="_blank"
-                            >
-                                Сбросить пароль
-                            </a>'''
-            },
-            subtype=MessageType.html
-        )
-        try:
-            fm = FastMail(conf)
-            await fm.send_message(message, template_name='default.html')
-        except Exception as e:
-            print(e)
+        send_reset_password_email_wrapper.apply_async(
+            args=[UserReadWithEmail.model_validate(user).model_dump(), token])
 
     async def on_after_request_verify(
         self, user: User, token: str, request: Optional[Request] = None
     ):
-        print(f'Пользователь {user.id} запросил верификацию')
-        message = MessageSchema(
-            subject='Подтверждение почты',
-            recipients=[user.email],
-            template_body={
-                'title': 'Подтверждение почты',
-                'text': f'''<p>Здравствуйте, {user.name}</p>
-                            <p>
-                                Для подтверждения вашей учетной записи, пожалуйста, нажмите на кнопку ниже:
-                            </p>
-                            <a
-                                href="{getenv('API_HOST', '')}/verify-email?token={token}"
-                                class="btn btn-primary"
-                                target="_blank"
-                            >
-                                Подтвердить почту
-                            </a>'''
-            },
-            subtype=MessageType.html
-        )
-        try:
-            fm = FastMail(conf)
-            await fm.send_message(message, template_name='default.html')
-        except Exception as e:
-            print(e)
+        print(f'User {user.id} has requested verify')
+        send_verify_email_wrapper.apply_async(
+            args=[UserReadWithEmail.model_validate(user).model_dump(), token])
 
 
 async def get_user_manager(user_db: SQLAlchemyUserDatabase = Depends(get_user_db)):

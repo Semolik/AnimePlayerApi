@@ -8,6 +8,8 @@ services:
       - .env
     environment:
       - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     command: uvicorn src.main:app --host 0.0.0.0 --reload --port 8000
     depends_on:
       database:

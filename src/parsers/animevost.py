@@ -1,9 +1,14 @@
 import re
 import aiohttp
+from src.models.parsers import Episode
 from src.utils.parsers import Parser, ParserFunctions
-from src.schemas.parsers import LinkParsedTitle, ParsedTitle, ParsedTitleShort, ParsedGenre, ParsedTitlesPage
+from src.schemas.parsers import LinkParsedTitle, ParsedEpisode, ParsedLink, ParsedTitle, ParsedTitleShort, ParsedGenre, ParsedTitlesPage, Episode as EpisodeSchema
 from fastapi import HTTPException
 from bs4 import BeautifulSoup
+from src.redis.services import CacheService
+from src.db.session import AsyncSession
+from fastapi import BackgroundTasks
+from typing import List
 
 
 API_URL = "https://api.animetop.info/v1"
@@ -121,6 +126,27 @@ async def get_title(title_id: str) -> ParsedTitle:
             series = series_from_title(data['title'])
             match = re.match(r'^[^\[]+', data['title'])
             related_titles = await get_title_related(match.group(), title_id) if match else []
+            async with session.post(f'{API_URL}/playlist', data={'id': int(title_id)}) as episodes_data:
+                episodes_json = await episodes_data.json()
+                episodes_list = [
+                    ParsedEpisode(
+                        name=episode['name'],
+                        number=int(
+                            re.search(r'\d+', episode['name']).group() or 0),
+                        preview=episode['preview'],
+                        links=[
+                            ParsedLink(
+                                name='HD',
+                                link=episode['hd']
+                            ),
+                            ParsedLink(
+                                name='SD',
+                                link=episode['std']
+                            ),
+                        ]
+                    )
+                    for episode in episodes_json
+                ]
             return ParsedTitle(
                 id_on_website=title_id,
                 name=get_original_title(data['title']),
@@ -128,7 +154,8 @@ async def get_title(title_id: str) -> ParsedTitle:
                 image_url=data['urlImagePreview'],
                 additional_info=series,
                 description=data['description'].replace('<br>', ''),
-                series=series,
+                series_info=series,
+                episodes_list=episodes_list,
                 related_titles=related_titles,
                 year=data['year'],
                 genres_names=data['genre'].split(', '),
@@ -202,7 +229,21 @@ async def get_genre(genre_website_id: str, page: int) -> ParsedTitlesPage:
 functions = ParserFunctions(
     get_titles=get_titles, get_title=get_title, get_genres=get_genres, get_genre=get_genre)
 
-parser = Parser(
+
+class AnimevostParser(Parser):
+
+    async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, db: AsyncSession, service: CacheService) -> EpisodeSchema:
+        return EpisodeSchema(
+            id=db_episode.id,
+            name=db_episode.name,
+            links=parsed_episode.links,
+            number=db_episode.number,
+            image_url=parsed_episode.preview,
+            progress=progress
+        )
+
+
+parser = AnimevostParser(
     name="Animevost",
     id="animevost",
     functions=functions

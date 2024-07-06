@@ -2,6 +2,7 @@ from typing import List
 from uuid import uuid4
 from src.db.base import Base
 from sqlalchemy import UUID,  Column, Integer, String, DateTime, func, ForeignKey, Boolean
+from sqlalchemy.orm import relationship
 
 
 class Title(Base):
@@ -23,6 +24,44 @@ class Title(Base):
         server_default=func.now()
     )
     image_url = Column(String)
+
+
+class Episode(Base):
+    __tablename__ = "episodes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    title_id = Column(UUID(as_uuid=True), ForeignKey(
+        Title.id), nullable=False)
+    title = relationship(Title, foreign_keys=[title_id])
+    number = Column(Integer, nullable=False)
+    name = Column(String, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+
+class EpisodeProgress(Base):
+    __tablename__ = "episode_progress"
+
+    episode_id = Column(UUID(as_uuid=True), ForeignKey(
+        Episode.id), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey(
+        "users.id"), primary_key=True)
+    progress = Column(Integer, nullable=False)
+
+
+class CurrentEpisode(Base):
+    __tablename__ = "current_episodes"
+
+    episode_id = Column(UUID(as_uuid=True), ForeignKey(
+        Episode.id), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey(
+        "users.id"), primary_key=True)
+    timestamp = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
 
 
 class FavoriteTitle(Base):
