@@ -246,5 +246,6 @@ class AnimevostParser(Parser):
 parser = AnimevostParser(
     name="Animevost",
     id="animevost",
-    functions=functions
+    functions=functions,
+    main_pages_count=2,
 )

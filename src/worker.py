@@ -15,7 +15,8 @@ celery.conf.result_backend = os.environ.get("CELERY_RESULT_BACKEND")
 
 async def update_parser(parser: Parser):
     service = await parser.get_service()
-    await parser.update_titles(page=1, service=service, raise_error=True)
+    for i in range(1, parser.main_pages_count+1):
+        await parser.update_titles(page=i, service=service, raise_error=False)
 
 
 @celery.task(name="update_parser_task")

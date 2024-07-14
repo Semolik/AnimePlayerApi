@@ -129,7 +129,6 @@ class Title(TitleShort):
 class ParserInfo(BaseModel):
     id: str
     name: str
-    last_titles: list[TitleShort]
 
     class Config:
         from_attributes = True

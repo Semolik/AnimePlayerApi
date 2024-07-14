@@ -27,7 +27,7 @@ class ParserFunctions:
 
 
 class Parser(ABC):
-    def __init__(self, *, id: str, name: str, functions: ParserFunctions) -> None:
+    def __init__(self, *, id: str, name: str, functions: ParserFunctions, main_pages_count: int = 1):
         """
         :param id: The identifier to be used as the prefix for the API routes.
         :param name: The name to be used for the API router tags.
@@ -41,6 +41,7 @@ class Parser(ABC):
         self.titles_cache_period = settings.titles_cache_hours
         self.genres_cache_period = settings.genres_cache_hours
         self.functions = functions
+        self.main_pages_count = main_pages_count
 
     def get_custom_router(self):
         pass
@@ -58,13 +59,23 @@ class Parser(ABC):
         title_obj = await self.get_title_data(db_title=db_title, service=service)
         return await self._prepare_title(title_obj=title_obj, db_title=db_title, db=db, background_tasks=background_tasks, current_user=current_user, service=service)
 
-    async def get_titles(self, page: int, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> List[Title]:
+    async def get_titles(self, page: int, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> TitlesPage:
         is_expired = await service.expire_status(parser_id=self.parser_id)
         cached_titles_page = await service.get_titles(parser_id=self.parser_id, page=page)
         if is_expired and cached_titles_page:
             background_tasks.add_task(self.update_titles, page, service)
         titles_page = cached_titles_page if cached_titles_page else await self.update_titles(page=page, service=service, raise_error=True)
         return await self._prepare_titles(titles_page=titles_page, db=db, background_tasks=background_tasks)
+
+    async def get_main_titles(self, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> TitlesPage:
+        pages = []
+        for i in range(1, self.main_pages_count+1):
+            pages.append(await self.get_titles(page=i, background_tasks=background_tasks, db=db, service=service))
+        return self.merge_pages(pages)
+
+    def merge_pages(self, pages: List[TitlesPage]) -> TitlesPage:
+        return TitlesPage(titles=[title for page in pages for title in page.titles],
+                          total_pages=pages[0].total_pages)
 
     async def get_genres_data(self, service: CacheService, background_tasks: BackgroundTasks) -> List[ParsedGenre]:
         is_expired = await service.genres_expire_status(parser_id=self.parser_id)

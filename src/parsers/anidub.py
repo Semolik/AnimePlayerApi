@@ -39,7 +39,7 @@ async def get_main_page(session: aiohttp.ClientSession) -> list[ParsedTitleShort
                     if 'genre' == parts[0]:
                         genres_names = parts[1].split(', ')
                     if 'upposter2' == parts[0]:
-                        img = f'{WEBSITE_URL}/uploads/posts/{parts[1]}'
+                        img = f'{WEBSITE_URL}/uploads/posts/{parts[1].split("&")[0]}'
             titles.append(ParsedTitleShort(
                 id_on_website=title['id'],
                 name=get_original_title(title['title']),

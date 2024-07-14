@@ -16,16 +16,10 @@ for parser in parsers:
 
 
 @api_router.get("", response_model=list[ParserInfo])
-async def get_parsers(background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_async_session)):
+async def get_parsers():
     parsers_info = []
     for parser in parsers:
-        last_titles = await parsers_dict[parser.parser_id].get_titles(
-            page=1,
-            background_tasks=background_tasks,
-            db=db
-        )
-        parsers_info.append(ParserInfo(id=parser.parser_id,
-                            name=parser.name, last_titles=last_titles))
+        parsers_info.append(ParserInfo(id=parser.parser_id, name=parser.name))
     return parsers_info
 
 
@@ -37,6 +31,12 @@ async def get_titles(parser_id: ParserId, background_tasks: BackgroundTasks, pag
         background_tasks=background_tasks,
         db=db
     )
+
+
+@api_router.get("/{parser_id}/titles/main", response_model=TitlesPage)
+async def get_main_titles(parser_id: ParserId, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_async_session)):
+    parser = parsers_dict[parser_id]
+    return await parser.get_main_titles(background_tasks=background_tasks, db=db)
 
 
 @api_router.get("/{parser_id}/genres", response_model=list[Genre])

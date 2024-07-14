@@ -2,6 +2,8 @@ import os
 import importlib.util
 from fastapi.logger import logger
 
+from src.utils.parsers import Parser
+
 
 def import_all_modules():
     modules = []
@@ -22,5 +24,5 @@ def import_all_modules():
     return modules
 
 
-parsers = import_all_modules()
+parsers: list[Parser] = import_all_modules()
 parsers_dict = {parser.parser_id: parser for parser in parsers}
