@@ -76,6 +76,10 @@ class TitlesPage(BaseModel):
     total_pages: int
 
 
+class MainPage(TitlesPage):
+    pages_on_main: int = 1
+
+
 class ParsedGenre(BaseModel):
     name: str
     id_on_website: str

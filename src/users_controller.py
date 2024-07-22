@@ -117,3 +117,9 @@ async def verify_token(token: str | None, db: AsyncSession):
                 return await user_manager.verify(token)
     except Exception as e:
         return
+
+
+async def get_password_hash(password: str):
+    async with get_user_db_context() as user_db:
+        async with get_user_manager_context(user_db) as user_manager:
+            return user_manager.password_helper.hash(password)

@@ -1,7 +1,7 @@
 from typing import Literal
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from src.db.session import get_async_session, AsyncSession
-from src.schemas.parsers import Genre, ParserInfo,  TitlesPage
+from src.schemas.parsers import Genre, MainPage, ParserInfo,  TitlesPage
 from src.parsers import parsers, parsers_dict
 
 
@@ -19,7 +19,8 @@ for parser in parsers:
 async def get_parsers():
     parsers_info = []
     for parser in parsers:
-        parsers_info.append(ParserInfo(id=parser.parser_id, name=parser.name))
+        parsers_info.append(ParserInfo(
+            id=parser.parser_id, name=parser.name, pages_on_main=parser.main_pages_count))
     return parsers_info
 
 
@@ -33,10 +34,13 @@ async def get_titles(parser_id: ParserId, background_tasks: BackgroundTasks, pag
     )
 
 
-@api_router.get("/{parser_id}/titles/main", response_model=TitlesPage)
+@api_router.get("/{parser_id}/titles/main", response_model=MainPage)
 async def get_main_titles(parser_id: ParserId, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_async_session)):
     parser = parsers_dict[parser_id]
-    return await parser.get_main_titles(background_tasks=background_tasks, db=db)
+    page = await parser.get_main_titles(background_tasks=background_tasks, db=db)
+    page_obj = MainPage.model_validate(page, from_attributes=True)
+    page_obj.pages_on_main = parser.main_pages_count
+    return page_obj
 
 
 @api_router.get("/{parser_id}/genres", response_model=list[Genre])

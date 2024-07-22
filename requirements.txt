@@ -16,3 +16,4 @@ beautifulsoup4==4.12.3
 shikimori_api==1.0.1
 celery[redis]==5.2.7
 asgiref==3.8.1
+pillow==10.1.0

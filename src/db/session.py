@@ -5,6 +5,8 @@ from src.core.config import settings
 from src.db.base import Base
 from src.models.users import *
 from src.models.parsers import *
+from src.models.files import *
+
 
 engine = create_async_engine(
     f"{settings.POSTGRES_SCHEME}://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_SERVER}/{settings.POSTGRES_DB}")

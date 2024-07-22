@@ -1,6 +1,7 @@
 import uuid
 from pydantic import BaseModel, EmailStr
-from fastapi_users.schemas import BaseUserCreate, BaseUser, BaseUserUpdate
+from fastapi_users.schemas import BaseUserCreate, BaseUser
+from src.schemas.images import ImageLink
 
 
 class BaseUserEmail(BaseModel):
@@ -16,6 +17,7 @@ class UserReadAfterRegister(BaseUser[uuid.UUID], CustomUserFields):
 
 
 class UserRead(UserReadAfterRegister):
+    image: ImageLink | None = None
     pass
 
 
@@ -27,5 +29,10 @@ class UserCreate(BaseUserCreate, CustomUserFields):
     pass
 
 
-class UserUpdate(BaseUserUpdate, CustomUserFields):
+class UserUpdate(CustomUserFields, BaseUserEmail):
     pass
+
+
+class ChangePassword(BaseModel):
+    password: str
+    new_password: str

@@ -20,3 +20,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     oauth_accounts: Mapped[List[OAuthAccount]] = relationship(
         "OAuthAccount", lazy="joined"
     )
+    image_id = Column(UUID(as_uuid=True), ForeignKey(
+        'images.id', ondelete='SET NULL'), nullable=True)
+    image = relationship("Image", foreign_keys=[
+                         image_id], cascade="all,delete")
