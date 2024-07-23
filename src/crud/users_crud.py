@@ -31,7 +31,7 @@ class UsersCrud(BaseCRUD):
 
     async def change_password(self, user: User, new_password: str) -> User:
         user.hashed_password = await get_password_hash(new_password)
-        return self.create(user)
+        return await self.update(user)
 
     async def update_user_image(self, user: User, image: UploadFile) -> Image | None:
         if user.image_id:

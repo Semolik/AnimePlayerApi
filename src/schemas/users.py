@@ -34,5 +34,4 @@ class UserUpdate(CustomUserFields, BaseUserEmail):
 
 
 class ChangePassword(BaseModel):
-    password: str
     new_password: str

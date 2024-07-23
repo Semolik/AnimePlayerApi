@@ -26,7 +26,7 @@ services:
     build: .
     volumes:
       - .:/usr/src
-    command: celery -A src.worker.celery worker
+    command: celery -A src.worker.celery worker --prefetch-multiplier 1
     env_file:
       - .env
     environment:
