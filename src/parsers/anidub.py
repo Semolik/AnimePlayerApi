@@ -185,10 +185,7 @@ async def get_title(title_id: str) -> ParsedTitle:
                         genres_names = [genre.text
                                         for genre in flist_item.select('a')]
                         break
-            if len(genres_names) > 0:
-                async with async_session_maker() as db:
-                    for genre in genres_names:
-                        await get_db_genre(db=db, genre_name=genre)
+
             series_data = []
             player = data.select_one('.fplayer')
             if player:
@@ -293,6 +290,13 @@ class AnidubParser(Parser):
         api_router.add_api_route(
             path="/episode", endpoint=self.get_episode, methods=["GET"])
         return api_router
+
+    async def _prepare_genres_names(self, genres_names: List[str], db: AsyncSession, background_tasks: BackgroundTasks) -> List[Genre]:
+        genres = []
+        for genre_name in genres_names:
+            genre = await get_db_genre(db=db, genre_name=genre_name)
+            genres.append(genre)
+        return genres
 
 
 parser = AnidubParser(
