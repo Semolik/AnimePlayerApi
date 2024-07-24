@@ -157,6 +157,8 @@ class Parser(ABC):
                 setattr(title_db_obj, key, value)
         title_db_obj.episodes = await self.prepare_episodes(title=title_obj, title_id=db_title.id, db=db, background_tasks=background_tasks, service=service, current_user=current_user)
         title_db_obj.shikimori = shikimori_title
+        if not title_obj.duration and shikimori_title:
+            title_db_obj.duration = f"{shikimori_title.data['duration']} мин." if shikimori_title.data['duration'] else None
         title_db_obj.related = await self._prepare_related_titles(title_id=db_title.id, related_titles=title_obj.related_titles, db=db)
         recommended_titles = await self._prepare_titles(
             titles_page=ParsedTitlesPage(titles=title_obj.recommended_titles, total_pages=0), db=db, background_tasks=background_tasks)

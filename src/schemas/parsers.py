@@ -42,6 +42,7 @@ class ParsedTitle(ParsedTitleShort):
     year: str
     episodes_list: list[ParsedEpisode] = []
     kind: Literal[tuple(settings.shikimori_kinds)] | None = None  # nopep8 # type: ignore
+    duration: str | None = None
 
 
 class ShikimoriTitle(BaseModel):
@@ -125,6 +126,7 @@ class Title(TitleShort):
     related: list[TitleLink] = []
     recommended: list[TitleShort] = []
     shikimori: ShikimoriTitle | None = None
+    duration: str | None = None
 
     class Config:
         from_attributes = True

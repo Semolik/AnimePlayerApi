@@ -2,10 +2,42 @@ from datetime import datetime, timedelta
 from fastapi import BackgroundTasks
 from src.schemas.parsers import ParsedTitle, ShikimoriTitle
 from src.redis.services import CacheService
-from shikimori_api import Shikimori
-from src.core.config import settings
-session = Shikimori()
-api = session.get_api()
+import aiohttp
+API_URL = "https://shikimori.one/api/graphql"
+anime_schema = """
+{
+    id
+    malId
+    name
+    russian
+    licenseNameRu
+    english
+    synonyms
+    kind
+    rating
+    score
+    status
+    episodes
+    episodesAired
+    duration
+    airedOn { year month day date }
+    url
+    season
+
+    poster { id originalUrl mainUrl }
+
+    genres { id name russian kind }
+    characterRoles {
+      id
+      rolesRu
+      rolesEn
+      character { id name poster { id } }
+    }
+    screenshots { id originalUrl x166Url x332Url }
+    description
+  }
+}
+"""
 
 
 class Shikimori:
@@ -13,14 +45,24 @@ class Shikimori:
         self.service = service
 
     async def get_title(self, title: ParsedTitle) -> ShikimoriTitle:
-        title_info = api.animes.GET(
-            search=title.en_name or title.name, kind=title.kind)
-        if len(title_info) > 0:
-            return await self.service.set_shikimori_title(title_info[0]['id'], title_info[0])
+        async with aiohttp.ClientSession() as session:
+            query = "{" + f'animes(search: "{title.en_name or title.name}", limit: 1, kind: "{title.kind}")' + anime_schema + "}"
+            async with session.post(API_URL, json={
+                "query": query
+            }) as response:
+                data = await response.json()
+                title_info = data['data']['animes']
+                if len(title_info) > 0:
+                    return await self.service.set_shikimori_title(title_info[0]['id'], title_info[0])
 
     async def update_shikimori_title(self, title_id: int):
-        title_json = await api.animes.GET(id=title_id)
-        title = self.service.set_shikimori_title(title_id, title_json)
+        async with aiohttp.ClientSession() as session:
+            async with session.post(API_URL, json={
+                "query": "{" + f'animes(ids: "{title_id}")' + anime_schema + "}"
+            }) as response:
+                data = await response.json()
+                title_json = data['data']['animes'][0]
+        title = await self.service.set_shikimori_title(title_id, title_json)
         return title
 
     async def get_shikimori_title(self, title_id: int, background_tasks: BackgroundTasks) -> ShikimoriTitle:

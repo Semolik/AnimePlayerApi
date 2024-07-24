@@ -72,7 +72,7 @@ async def get_titles(page: int) -> ParsedTitlesPage:
             return ParsedTitlesPage(titles=titles, total_pages=pages)
 
 
-async def get_title_related(full_title: str, title_id: int) -> list[LinkParsedTitle]:
+async def get_title_page(full_title: str, title_id: int):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -100,19 +100,23 @@ async def get_title_related(full_title: str, title_id: int) -> list[LinkParsedTi
                 soup = BeautifulSoup(html, 'html.parser')
                 short_stories = soup.select('div.shortstory')
                 for story in short_stories:
-                    a = story.select_one('div.shortstoryHead > h2 > a')
-                    if get_id_from_url(a['href']) == str(title_id):
-                        return [
-                            LinkParsedTitle(
-                                id_on_website=get_id_from_url(a['href']),
-                                name=get_original_title(a.text),
-                            )
-                            for a in story.select('div.shortstoryContent > div.text_spoiler > ol > li > a')
-                        ]
-                return []
+                    if get_id_from_url(story.select_one('div.shortstoryHead > h2 > a')['href']) == str(title_id):
+                        return story
+                return None
     except Exception as e:
         print("Error while getting related titles from animevost:", e)
-        return []
+        return None
+
+
+async def get_title_related(story: BeautifulSoup) -> List[LinkParsedTitle]:
+
+    return [
+        LinkParsedTitle(
+            id_on_website=get_id_from_url(a['href']),
+            name=get_original_title(a.text),
+        )
+        for a in story.select('div.shortstoryContent > div.text_spoiler > ol > li > a')
+    ]
 
 
 async def get_title(title_id: str) -> ParsedTitle:
@@ -125,7 +129,19 @@ async def get_title(title_id: str) -> ParsedTitle:
             data = json['data'][0]
             series = series_from_title(data['title'])
             match = re.match(r'^[^\[]+', data['title'])
-            related_titles = await get_title_related(match.group(), title_id) if match else []
+            title_page = await get_title_page(match.group(), title_id) if match else None
+            related_titles = await get_title_related(title_page) if title_page else []
+            duration = None
+            if title_page:
+                info_tags = title_page.select(
+                    'div.shortstoryContent > table > tr > td > p')
+                for tag in info_tags:
+                    strong = tag.select_one('strong')
+                    if not strong:
+                        continue
+                    if "Количество серий: " == strong.text:
+                        duration = re.search(r'\(([^)]+)', tag.text).group(1)
+                        break
             async with session.post(f'{API_URL}/playlist', data={'id': int(title_id)}) as episodes_data:
                 episodes_json = await episodes_data.json()
                 episodes_list = [
@@ -159,7 +175,8 @@ async def get_title(title_id: str) -> ParsedTitle:
                 related_titles=related_titles,
                 year=data['year'],
                 genres_names=data['genre'].split(', '),
-                kind=kinds.get(data['type'])
+                kind=kinds.get(data['type']),
+                duration=duration
             )
 
 
