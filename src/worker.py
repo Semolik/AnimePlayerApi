@@ -13,22 +13,6 @@ celery.conf.broker_url = os.environ.get("CELERY_BROKER_URL")
 celery.conf.result_backend = os.environ.get("CELERY_RESULT_BACKEND")
 
 
-async def update_parser(parser: Parser):
-    service = await parser.get_service()
-    for i in range(1, parser.main_pages_count+1):
-        await parser.update_titles(page=i, service=service, raise_error=False)
-
-
-@celery.task(name="update_parser_task")
-def update_parser_wrapper(parser_id: str):
-    parser = parsers_dict.get(parser_id)
-    if parser:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(update_parser(parser))
-    else:
-        print(f"Parser with ID {parser_id} not found.")
-
-
 async def send_reset_password_email(user: dict, token: str):
     print(f'Sending reset password email to {user["id"]}')
     message = MessageSchema(
@@ -111,6 +95,12 @@ def send_verify_email_wrapper(user: User, token: str):
     loop.run_until_complete(send_verify_email(user, token))
 
 
+async def update_parser(parser: Parser):
+    service = await parser.get_service()
+    for i in range(1, parser.main_pages_count+1):
+        await parser.update_titles(page=i, service=service, raise_error=False)
+
+
 async def check_parser(parser_id: str):
     parser: Parser = parsers_dict.get(parser_id)
     timeout = await parser.get_parser_expires_in()
@@ -130,5 +120,6 @@ def check_parser_wrapper(parser_id: str):
 
 @celery.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
+    sender.control.purge()
     for parser_id in parsers_dict.keys():
         check_parser_wrapper.apply_async((parser_id,))
