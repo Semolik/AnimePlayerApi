@@ -113,7 +113,7 @@ class Parser(ABC):
     async def _prepare_title_shikimori(self, title_obj: ParsedTitle, db_title: TitleModel, db: AsyncSession, service: CacheService, background_tasks: BackgroundTasks) -> tuple[TitleModel, ShikimoriTitle]:
         if not db_title.shikimori_fetched:
             shikimori_title = await Shikimori(service=service).get_title(title_obj)
-            db_title = await TitlesCrud(db).update_shikimori_info(db_title=db_title, shikimori_id=shikimori_title.data['id'] if shikimori_title else None)
+            db_title = await TitlesCrud(db).update_shikimori_info(db_title=db_title, shikimori_id=int(shikimori_title.data['id']) if shikimori_title else None)
         elif db_title.shikimori_id:
             shikimori_title = await Shikimori(service=service).get_shikimori_title(title_id=db_title.shikimori_id, background_tasks=background_tasks)
         else:
