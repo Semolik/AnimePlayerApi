@@ -271,6 +271,7 @@ class AnidubParser(Parser):
                 ),
             ],
             number=db_episode.number,
+            image_url=parsed_episode.preview,
             progress=progress,
             is_m3u8=True
         )
