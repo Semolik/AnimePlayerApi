@@ -27,7 +27,7 @@ class ParserFunctions:
 
 
 class Parser(ABC):
-    def __init__(self, *, id: str, name: str, functions: ParserFunctions, main_pages_count: int = 1):
+    def __init__(self, *, id: str, name: str, functions: ParserFunctions, main_pages_count: int = 1, order: int = 0):
         """
         :param id: The identifier to be used as the prefix for the API routes.
         :param name: The name to be used for the API router tags.
@@ -42,6 +42,7 @@ class Parser(ABC):
         self.genres_cache_period = settings.genres_cache_hours
         self.functions = functions
         self.main_pages_count = main_pages_count
+        self.order = order
 
     def get_custom_router(self):
         pass

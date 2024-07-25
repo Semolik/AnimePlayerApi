@@ -265,4 +265,5 @@ parser = AnimevostParser(
     id="animevost",
     functions=functions,
     main_pages_count=2,
+    order=1
 )

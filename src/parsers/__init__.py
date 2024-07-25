@@ -21,7 +21,7 @@ def import_all_modules():
                 print(f"Imported parser: {module.parser.parser_id}")
             except Exception as e:
                 logger.error(f"Error importing parser {module_name}: {e}")
-    return modules
+    return sorted(modules, key=lambda x: x.order, reverse=True)
 
 
 parsers: list[Parser] = import_all_modules()
