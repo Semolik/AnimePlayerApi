@@ -46,7 +46,8 @@ class Shikimori:
 
     async def get_title(self, title: ParsedTitle) -> ShikimoriTitle:
         async with aiohttp.ClientSession() as session:
-            query = "{" + f'animes(search: "{title.en_name or title.name}", limit: 1' + \
+            name = (title.en_name or title.name).replace('"', '\\"')
+            query = "{" + f'animes(search: "{name}", limit: 1' + \
                 (f', kind: "{title.kind}"' if title.kind else '') + \
                 ')' + anime_schema + "}"
             async with session.post(API_URL, json={

@@ -128,7 +128,7 @@ def get_titles_from_page(soup: BeautifulSoup) -> list[ParsedTitleShort]:
     return parsed_titles
 
 
-def get_pages_count(soup):
+def get_pages_count(soup: BeautifulSoup):
     dle_content = soup.select_one('#dle-content')
     if not dle_content:
         return
@@ -137,6 +137,29 @@ def get_pages_count(soup):
     if not pagination:
         return
     return int(pagination[-1].text)
+
+
+async def get_series_data(soup: BeautifulSoup, session: aiohttp.ClientSession) -> list[ParsedEpisode]:
+    player = soup.select_one('.fplayer')
+    if player:
+        tabs_sel = player.select_one('.tabs-sel')
+        if tabs_sel:
+            tabs = tabs_sel.select('span')
+            if tabs:
+                link = tabs[0].get('data')
+                if 'https://player.ladonyvesna2005.info' in link:
+                    async with session.get(link) as response:
+                        html = await response.text()
+                        soup = BeautifulSoup(html, 'html.parser')
+                        tabs = soup.select('.tabs-sel span')
+                return [
+                    ParsedEpisode(
+                        number=int(re.search(r'\d+', tab.text).group()),
+                        name=tab.text,
+                        links=[ParsedLink(
+                            name='playlist', link=tab.get('data'))]
+                    ) for tab in tabs
+                ]
 
 
 async def get_title(title_id: str) -> ParsedTitle:
@@ -186,17 +209,7 @@ async def get_title(title_id: str) -> ParsedTitle:
                                         for genre in flist_item.select('a')]
                         break
 
-            series_data = []
-            player = data.select_one('.fplayer')
-            if player:
-                iframe = player.select_one('iframe')
-                link = iframe.get('src')
-                async with session.get(link) as response:
-                    html = await response.text()
-                    soup = BeautifulSoup(html, 'html.parser')
-                    tabs = soup.select('.tabs-sel span')
-                    series_data = [ParsedEpisode(number=int(re.search(r'\d+', tab.text).group()),
-                                                 name=tab.text, links=[ParsedLink(name='playlist', link=tab.get('data'))]) for tab in tabs]
+            series_data = await get_series_data(data, session)
             recommendations = data.select(
                 '.sect > .sect-content > .th-item')
             recommended_titles = [
@@ -282,9 +295,29 @@ class AnidubParser(Parser):
         if not link:
             raise HTTPException(
                 status_code=404, detail="Link not found")
+        content = await service.get_link_content(link)
+        if content:
+            return content
+
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://player.ladonyvesna2005.info/vid.php', params={'v': link}) as response:
-                return await response.text()
+            if 'https://video.sibnet.ru' in link:
+                async with session.get(link) as response:
+                    html = await response.text()
+                    p = next(re.finditer(r"\/v\/.+\d+.mp4", html), None)
+                    if not p:
+                        raise HTTPException(
+                            status_code=404, detail="Link not found")
+                    file_url = 'https://video.sibnet.ru' + p.group(0)
+                    async with session.head(file_url, headers={'Referer': link}) as response:
+                        if response.status == 200:
+                            content = await response.text()
+                        elif response.status == 302:
+                            content = 'http:' + response.headers['Location']
+            else:
+                async with session.get(f'https://player.ladonyvesna2005.info/vid.php', params={'v': link}) as response:
+                    content = await response.text()
+        await service.set_link_content(link, content)
+        return content
 
     def get_custom_router(self):
         api_router = APIRouter()

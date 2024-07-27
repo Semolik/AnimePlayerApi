@@ -82,5 +82,11 @@ class CacheService:
     async def get_link_by_hash(self, hash: str):
         return await self._redis.get(f"link:{hash}")
 
+    async def set_link_content(self, hash: str, content: str):
+        return await self._redis.set(f"link:{hash}:content", content)
+
+    async def get_link_content(self, hash: str):
+        return await self._redis.get(f"link:{hash}:content")
+
     async def set_link_by_hash(self, hash: str, link: str):
         return await self._redis.set(f"link:{hash}", link)
