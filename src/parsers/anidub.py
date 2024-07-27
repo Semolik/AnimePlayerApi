@@ -240,12 +240,13 @@ async def get_genre(genre_website_id: str, page: int) -> ParsedTitlesPage:
             soup = BeautifulSoup(html, 'html.parser')
             titles = get_titles_from_page(soup)
             pages_count = get_pages_count(soup)
-            if not titles or not pages_count:
+
+            if not titles:
                 raise HTTPException(
                     status_code=404, detail="Page not found on anidub.")
             return ParsedTitlesPage(
                 titles=titles,
-                total_pages=pages_count
+                total_pages=pages_count or 1
             )
 
 functions = ParserFunctions(
