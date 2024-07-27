@@ -53,7 +53,7 @@ def get_pages_count(soup: BeautifulSoup) -> int:
         raise HTTPException(
             status_code=404, detail="Page not found on animevost.")
     pagination = dle_content.select('div.block_2 > table > tr > td > a')
-    return int(pagination[-1].text)
+    return int(pagination[-1].text) if pagination else 1
 
 
 async def get_titles(page: int) -> ParsedTitlesPage:
@@ -238,8 +238,7 @@ async def get_genre(genre_website_id: str, page: int) -> ParsedTitlesPage:
             soup = BeautifulSoup(html, 'html.parser')
             titles = get_titles_from_page(soup)
             if len(titles) == 0:
-                raise HTTPException(
-                    status_code=404, detail="No titles found on page.")
+                return ParsedTitlesPage(titles=[], total_pages=0)
             pages = get_pages_count(soup)
             return ParsedTitlesPage(titles=titles, total_pages=pages)
 
