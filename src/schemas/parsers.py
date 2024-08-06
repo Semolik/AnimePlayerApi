@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Literal
 import uuid
-from pydantic import BaseModel, field_validator, validator
+from pydantic import BaseModel
 from src.core.config import settings
 
 
@@ -34,6 +34,7 @@ class ParsedEpisode(BaseModel):
     links: list[ParsedLink]
     number: int
     preview: str | None = None
+    is_m3u8: bool = False
 
 
 class ParsedTitle(ParsedTitleShort):

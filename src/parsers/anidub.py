@@ -6,6 +6,7 @@ from src.schemas.parsers import Episode, Genre, ParsedGenre, ParsedEpisode, Pars
 from src.redis.services import CacheService
 from src.utils.parsers import Parser, ParserFunctions
 from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from src.db.session import AsyncSession, async_session_maker
 from src.core.config import settings
 from bs4 import BeautifulSoup
@@ -147,13 +148,16 @@ async def get_series_data(soup: BeautifulSoup, session: aiohttp.ClientSession) -
             tabs = tabs_sel.select('span')
             if tabs:
                 link = tabs[0].get('data')
+                is_m3u8 = False
                 if 'https://player.ladonyvesna2005.info' in link:
                     async with session.get(link) as response:
                         html = await response.text()
                         soup = BeautifulSoup(html, 'html.parser')
                         tabs = soup.select('.tabs-sel span')
+                        is_m3u8 = True
                 return [
                     ParsedEpisode(
+                        is_m3u8=is_m3u8,
                         number=int(re.search(r'\d+', tab.text).group()),
                         name=tab.text,
                         links=[ParsedLink(
@@ -273,15 +277,19 @@ class AnidubParser(Parser):
 
     async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, db: AsyncSession, service: CacheService) -> Episode:
         link = parsed_episode.links[0].link
-        link_hash = hashlib.md5(link.encode()).hexdigest()
-        await service.set_link_by_hash(link_hash, link)
+        if parsed_episode.is_m3u8:
+            link_hash = hashlib.md5(link.encode()).hexdigest()
+            await service.set_link_by_hash(link_hash, link)
+            result_link = f'https://player.ladonyvesna2005.info/vid.php?v=/{link}'
+        else:
+            result_link = f'{settings.API_V1_STR}/parsers/{self.parser_id}/episode?link_hash={link_hash}'
         return Episode(
             id=db_episode.id,
             name=db_episode.name,
             links=[
                 ParsedLink(
                     name=parsed_episode.links[0].name,
-                    link=f'{settings.API_V1_STR}/parsers/{self.parser_id}/series?link_hash={link_hash}'
+                    link=result_link
                 ),
             ],
             number=db_episode.number,
@@ -290,7 +298,8 @@ class AnidubParser(Parser):
             is_m3u8=True
         )
 
-    async def get_episode(self, link_hash: str) -> str:
+    async def get_episode(self, link_hash: str) -> StreamingResponse:
+        raise NotImplementedError
         service = await self.get_service()
         link = await service.get_link_by_hash(link_hash)
         if not link:
@@ -301,24 +310,18 @@ class AnidubParser(Parser):
             return content
 
         async with aiohttp.ClientSession() as session:
-            if 'https://video.sibnet.ru' in link:
-                async with session.get(link) as response:
-                    html = await response.text()
-                    p = next(re.finditer(r"\/v\/.+\d+.mp4", html), None)
-                    if not p:
-                        raise HTTPException(
-                            status_code=404, detail="Link not found")
-                    file_url = 'https://video.sibnet.ru' + p.group(0)
-                    async with session.head(file_url, headers={'Referer': link}) as response:
-                        if response.status == 200:
-                            content = await response.text()
-                        elif response.status == 302:
-                            content = 'http:' + response.headers['Location']
-            else:
-                async with session.get(f'https://player.ladonyvesna2005.info/vid.php', params={'v': link}) as response:
-                    content = await response.text()
-        await service.set_link_content(link, content)
-        return content
+            async with session.get(link) as response:
+                html = await response.text()
+                p = next(re.finditer(r"\/v\/.+\d+.mp4", html), None)
+                if not p:
+                    raise HTTPException(
+                        status_code=404, detail="Link not found")
+                file_url = 'https://video.sibnet.ru' + p.group(0)
+                async with session.head(file_url, headers={'Referer': link}) as response:
+                    if response.status == 200:
+                        content = await response.text()
+                    elif response.status == 302:
+                        content = 'http:' + response.headers['Location']
 
     def get_custom_router(self):
         api_router = APIRouter()
