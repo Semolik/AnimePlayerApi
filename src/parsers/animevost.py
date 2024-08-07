@@ -153,11 +153,13 @@ async def get_title(title_id: str) -> ParsedTitle:
                         links=[
                             ParsedLink(
                                 name='HD',
-                                link=episode['hd']
+                                link=episode['hd'],
+                                quality=720
                             ),
                             ParsedLink(
                                 name='SD',
-                                link=episode['std']
+                                link=episode['std'],
+                                quality=480
                             ),
                         ]
                     )

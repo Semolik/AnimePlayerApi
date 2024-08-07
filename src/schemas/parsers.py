@@ -27,6 +27,7 @@ class ParsedTitlesPage(BaseModel):
 class ParsedLink(BaseModel):
     name: str
     link: str
+    quality: int | None = None
 
 
 class ParsedEpisode(BaseModel):
@@ -44,6 +45,7 @@ class ParsedTitle(ParsedTitleShort):
     episodes_list: list[ParsedEpisode] = []
     kind: Literal[tuple(settings.shikimori_kinds)] | None = None  # nopep8 # type: ignore
     duration: str | None = None
+    episodes_message: str | None = None
 
 
 class ShikimoriTitle(BaseModel):
@@ -128,6 +130,7 @@ class Title(TitleShort):
     recommended: list[TitleShort] = []
     shikimori: ShikimoriTitle | None = None
     duration: str | None = None
+    episodes_message: str | None = None
 
     class Config:
         from_attributes = True

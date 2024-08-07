@@ -164,6 +164,7 @@ async def get_series_data(soup: BeautifulSoup, session: aiohttp.ClientSession) -
                             name='playlist', link=tab.get('data'))]
                     ) for tab in tabs
                 ]
+    return []
 
 
 async def get_title(title_id: str) -> ParsedTitle:
@@ -214,6 +215,12 @@ async def get_title(title_id: str) -> ParsedTitle:
                         break
 
             series_data = await get_series_data(data, session)
+            episodes_message = None
+            if not series_data:
+                episodes_message_container = soup.select_one(
+                    '.fplayer .anidub__info_mess')
+                if episodes_message_container:
+                    episodes_message = episodes_message_container.text
             recommendations = data.select(
                 '.sect > .sect-content > .th-item')
             recommended_titles = [
@@ -230,7 +237,8 @@ async def get_title(title_id: str) -> ParsedTitle:
                 description=description,
                 genres_names=genres_names,
                 recommended_titles=recommended_titles,
-                kind=kind
+                kind=kind,
+                episodes_message=episodes_message
             )
 
 

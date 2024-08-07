@@ -50,10 +50,11 @@ class Parser(ABC):
     async def get_title_data(self, db_title: TitleModel, service: CacheService) -> ParsedTitle:
         title_id = db_title.id
         is_expired, cached_title = await self._get_cached_title(title_id, service)
-        if not cached_title or is_expired or not db_title.image_url:
-            title_obj = await self._update_title_cache(db_title.id_on_website, title_id, service)
-        else:
-            title_obj = ParsedTitle(**cached_title)
+        title_obj = await self._update_title_cache(db_title.id_on_website, title_id, service)
+        # if not cached_title or is_expired or not db_title.image_url:
+        #     title_obj = await self._update_title_cache(db_title.id_on_website, title_id, service)
+        # else:
+        #     title_obj = ParsedTitle(**cached_title)
         return title_obj
 
     async def get_title(self, db_title: TitleModel, background_tasks: BackgroundTasks, db: AsyncSession, current_user: UserModel, service: CacheService = Depends(Provide[Container.service])) -> Title:
