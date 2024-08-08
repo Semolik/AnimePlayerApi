@@ -5,6 +5,7 @@ from src.db.session import get_async_session, AsyncSession
 from src.schemas.parsers import Episode, ParsedTitle, TitleEpisode
 from src.parsers import parsers_dict
 from src.users_controller import current_active_user
+from src.worker import get_episode_duration
 api_router = APIRouter(prefix="/episodes", tags=["episodes"])
 
 
@@ -15,7 +16,7 @@ async def get_episodes(page: int = Query(1, ge=1), db: AsyncSession = Depends(ge
     for episode in episodes_info:
         parser = parsers_dict[episode[2]]
         service = await parser.get_service()
-        title_data: ParsedTitle = await parser.get_title_data(
+        title_data, updated = await parser.get_title_data(
             db_title=episode[0].title,
             service=service,
         )
@@ -25,9 +26,13 @@ async def get_episodes(page: int = Query(1, ge=1), db: AsyncSession = Depends(ge
         prepared_episode: Episode = await parser.prepare_episode(
             db_episode=episode[0],
             progress=episode[1],
+            seconds=episode[2],
             service=service,
             db=db,
             parsed_episode=parsed_episode)
+        if updated:
+            get_episode_duration.apply_async(
+                args=[prepared_episode])
         prepared_episode.image_url = title_data.image_url
         episodes.append(
             TitleEpisode(
@@ -39,15 +44,18 @@ async def get_episodes(page: int = Query(1, ge=1), db: AsyncSession = Depends(ge
 
 
 @api_router.post("/{episode_id}/progress", response_model=None, status_code=204)
-async def set_episode_progress(episode_id: UUID, progress: int = Query(..., ge=0, le=100), db: AsyncSession = Depends(get_async_session), current_user=Depends(current_active_user)):
+async def set_episode_progress(episode_id: UUID, progress: int = Query(..., ge=0, le=100), time: int = Query(..., ge=0), db: AsyncSession = Depends(get_async_session), current_user=Depends(current_active_user)):
     db_episode = await EpisodesCrud(db).get_by_id(episode_id)
     if not db_episode:
         raise HTTPException(status_code=404, detail="Episode not found.")
     current_episode = await EpisodesCrud(db).get_current_title_episode(title_id=db_episode.title_id, user_id=current_user.id)
     if current_episode:
         await EpisodesCrud(db).delete(current_episode)
+    if db_episode.duration and time > db_episode.duration:
+        raise HTTPException(
+            status_code=400, detail="Time can't be more than episode duration.")
     await EpisodesCrud(db).set_current_episode(episode_id=db_episode.id, user_id=current_user.id)
-    await EpisodesCrud(db).set_episode_progress(episode_id=db_episode.id, user_id=current_user.id, progress=progress)
+    await EpisodesCrud(db).set_episode_progress(episode_id=db_episode.id, user_id=current_user.id, progress=progress, seconds=time)
 
 
 @api_router.delete("/{episode_id}/progress", response_model=None, status_code=204)

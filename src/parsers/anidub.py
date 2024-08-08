@@ -283,7 +283,7 @@ class AnidubParser(Parser):
                 await get_db_genre(db=db, genre_name=genre_name)
         return await super()._prepare_titles(titles_page, db, background_tasks)
 
-    async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, db: AsyncSession, service: CacheService) -> Episode:
+    async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, seconds: int, db: AsyncSession, service: CacheService) -> Episode:
         link = parsed_episode.links[0].link
         if parsed_episode.is_m3u8:
             link_hash = hashlib.md5(link.encode()).hexdigest()
@@ -294,6 +294,7 @@ class AnidubParser(Parser):
         return Episode(
             id=db_episode.id,
             name=db_episode.name,
+            duration=db_episode.duration,
             links=[
                 ParsedLink(
                     name=parsed_episode.links[0].name,
@@ -303,6 +304,7 @@ class AnidubParser(Parser):
             number=db_episode.number,
             image_url=parsed_episode.preview,
             progress=progress,
+            seconds=seconds,
             is_m3u8=True
         )
 

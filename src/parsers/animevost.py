@@ -250,14 +250,16 @@ functions = ParserFunctions(
 
 class AnimevostParser(Parser):
 
-    async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, db: AsyncSession, service: CacheService) -> EpisodeSchema:
+    async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, seconds: int, db: AsyncSession, service: CacheService) -> EpisodeSchema:
         return EpisodeSchema(
             id=db_episode.id,
             name=db_episode.name,
             links=parsed_episode.links,
             number=db_episode.number,
             image_url=parsed_episode.preview,
-            progress=progress
+            progress=progress,
+            seconds=seconds,
+            duration=db_episode.duration,
         )
 
 

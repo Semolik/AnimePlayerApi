@@ -39,6 +39,8 @@ class Episode(Base):
         DateTime(timezone=True),
         server_default=func.now()
     )
+    duration = Column(Integer, nullable=True)
+    duration_fetched = Column(Boolean, default=False)
 
 
 class EpisodeProgress(Base):
@@ -49,6 +51,7 @@ class EpisodeProgress(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey(
         "users.id"), primary_key=True)
     progress = Column(Integer, nullable=False)
+    seconds = Column(Integer, nullable=False)
 
 
 class CurrentEpisode(Base):

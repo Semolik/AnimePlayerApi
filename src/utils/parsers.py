@@ -47,19 +47,21 @@ class Parser(ABC):
     def get_custom_router(self):
         pass
 
-    async def get_title_data(self, db_title: TitleModel, service: CacheService) -> ParsedTitle:
+    async def get_title_data(self, db_title: TitleModel, service: CacheService) -> tuple[ParsedTitle, bool]:
         title_id = db_title.id
         is_expired, cached_title = await self._get_cached_title(title_id, service)
-        title_obj = await self._update_title_cache(db_title.id_on_website, title_id, service)
-        # if not cached_title or is_expired or not db_title.image_url:
-        #     title_obj = await self._update_title_cache(db_title.id_on_website, title_id, service)
-        # else:
-        #     title_obj = ParsedTitle(**cached_title)
-        return title_obj
+        updated = False
+        if not cached_title or is_expired or not db_title.image_url:
+            title_obj = await self._update_title_cache(db_title.id_on_website, title_id, service)
+            updated = True
+        else:
+            title_obj = ParsedTitle(**cached_title)
+        return title_obj, updated
 
-    async def get_title(self, db_title: TitleModel, background_tasks: BackgroundTasks, db: AsyncSession, current_user: UserModel, service: CacheService = Depends(Provide[Container.service])) -> Title:
-        title_obj = await self.get_title_data(db_title=db_title, service=service)
-        return await self._prepare_title(title_obj=title_obj, db_title=db_title, db=db, background_tasks=background_tasks, current_user=current_user, service=service)
+    async def get_title(self, db_title: TitleModel, background_tasks: BackgroundTasks, db: AsyncSession, current_user: UserModel, service: CacheService = Depends(Provide[Container.service])) -> tuple[Title, bool]:
+        title_obj, updated = await self.get_title_data(db_title=db_title, service=service)
+        title_result_obj = await self._prepare_title(title_obj=title_obj, db_title=db_title, db=db, background_tasks=background_tasks, current_user=current_user, service=service)
+        return title_result_obj, updated
 
     async def get_titles(self, page: int, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> TitlesPage:
         is_expired = await service.expire_status(parser_id=self.parser_id)
@@ -122,12 +124,8 @@ class Parser(ABC):
             shikimori_title = None
         return db_title, shikimori_title
 
-    async def get_parsed_episode(self, db_title: TitleModel, db_episode: Episode, service: CacheService) -> ParsedEpisode:
-        title_obj = await self.get_title_data(db_title=db_title, service=service)
-        return next(episode for episode in title_obj.episodes_list if episode.name == db_episode.name)
-
     @abstractmethod
-    async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, db: AsyncSession, service: CacheService) -> Episode:
+    async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, seconds: int, db: AsyncSession, service: CacheService) -> Episode:
         pass
 
     async def prepare_episodes(self, title: ParsedTitle, title_id: UUID, db: AsyncSession, background_tasks: BackgroundTasks, service: CacheService, current_user: UserModel) -> List[Episode]:
@@ -137,13 +135,15 @@ class Parser(ABC):
         episodes_names = [episode[0].name for episode in episodes]
         for series_item in title.episodes_list:
             progress = 0
+            seconds = 0
             try:
                 episode_index = episodes_names.index(series_item.name)
                 db_episode = episodes[episode_index][0]
                 progress = episodes[episode_index][1] or 0
+                seconds = episodes[episode_index][2] or 0
             except ValueError:
                 db_episode = await EpisodesCrud(db).create_episode(name=series_item.name, title_id=title_id, number=series_item.number)
-            result.append(await self.prepare_episode(db_episode=db_episode, parsed_episode=series_item, progress=progress, db=db, service=service))
+            result.append(await self.prepare_episode(db_episode=db_episode, parsed_episode=series_item, progress=progress, db=db, service=service, seconds=seconds))
         return result
 
     async def _prepare_title(self, title_obj: ParsedTitle, db_title: TitleModel, db: AsyncSession, background_tasks: BackgroundTasks, current_user: UserModel, service: CacheService) -> Title:

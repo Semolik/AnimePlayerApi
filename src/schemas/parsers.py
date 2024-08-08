@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 import uuid
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from src.core.config import settings
 
 
@@ -105,10 +105,23 @@ class Episode(BaseModel):
     id: uuid.UUID
     name: str
     progress: int = 0
+    seconds: int = 0
     number: int
     links: list[ParsedLink]
     is_m3u8: bool = False
     image_url: str | None = None
+    duration: int | None = None
+
+    duration_label: str | None = None
+
+    @validator("duration_label", always=True)
+    def duration_label_validator(cls, v, values):
+        if v:
+            return v
+        duration = values.get("duration")
+        if duration:
+            return f"{duration // 60} мин."
+        return None
 
 
 class TitleEpisode(Episode):

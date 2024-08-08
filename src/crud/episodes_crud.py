@@ -14,7 +14,7 @@ class EpisodesCrud(BaseCRUD):
         return (await self.db.execute(query)).scalar()
 
     async def get_episodes_by_title_id(self, title_id: UUID, user_id: UUID) -> list[tuple[Episode, int | None]]:
-        query = select(Episode, EpisodeProgress.progress).join(EpisodeProgress, isouter=True).where(
+        query = select(Episode, EpisodeProgress.progress, EpisodeProgress.seconds).join(EpisodeProgress, isouter=True).where(
             Episode.title_id == title_id, EpisodeProgress.user_id == user_id).order_by(Episode.number)
         return (await self.db.execute(query)).all()
 
@@ -22,7 +22,7 @@ class EpisodesCrud(BaseCRUD):
         episode = Episode(title_id=title_id, number=number, name=name)
         return await self.create(episode)
 
-    async def get_current_episodes(self, user_id: UUID, page: int = 1, per_page: int = 10) -> list[tuple[Episode, int | None, str]]:
+    async def get_current_episodes(self, user_id: UUID, page: int = 1, per_page: int = 10) -> list[tuple[Episode, int | None, int | None, str]]:
         end = page * per_page
         start = end - per_page
 
@@ -30,6 +30,7 @@ class EpisodesCrud(BaseCRUD):
             select(
                 Episode,
                 EpisodeProgress.progress,
+                EpisodeProgress.seconds,
                 Title.parser_id
             )
             .outerjoin(EpisodeProgress)
@@ -42,6 +43,11 @@ class EpisodesCrud(BaseCRUD):
         query = query.slice(start, end)
         query = await self.db.execute(query)
         return query.all()
+
+    async def update_episode_duration(self, episode: Episode, duration: int | None) -> Episode:
+        episode.duration = duration
+        episode.duration_fetched = True
+        return await self.update(episode)
 
     async def get_current_title_episode(self, title_id: UUID, user_id: UUID) -> Episode:
         query = select(CurrentEpisode).join(Episode, Episode.id == CurrentEpisode.episode_id).join(
@@ -69,11 +75,12 @@ class EpisodesCrud(BaseCRUD):
             EpisodeProgress.episode_id == episode_id, EpisodeProgress.user_id == user_id)
         return (await self.db.execute(query)).scalar()
 
-    async def set_episode_progress(self, episode_id: UUID, user_id: UUID, progress: int):
+    async def set_episode_progress(self, episode_id: UUID, user_id: UUID, progress: int, seconds: int):
         episode_progress = await self.get_episode_progress(episode_id, user_id)
         if episode_progress:
             episode_progress.progress = progress
+            episode_progress.seconds = seconds
             return await self.update(episode_progress)
         episode_progress = EpisodeProgress(
-            episode_id=episode_id, user_id=user_id, progress=progress)
+            episode_id=episode_id, user_id=user_id, progress=progress, seconds=seconds)
         return await self.create(episode_progress)

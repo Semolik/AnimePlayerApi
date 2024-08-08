@@ -1,12 +1,19 @@
 import asyncio
+import os
+from uuid import UUID
 from celery import Celery
+from fastapi import BackgroundTasks
+from fastapi_mail import FastMail, MessageSchema, MessageType
+from src.schemas.parsers import Episode
+from src.crud.episodes_crud import EpisodesCrud
 from src.models.users import User
 from src.parsers import parsers_dict
 from src.utils.parsers import Parser
-import os
 from src.core.config import settings
 from src.mail.conf import conf
-from fastapi_mail import FastMail, MessageSchema, MessageType
+from src.db.session import get_async_session_context
+from src.utils.videos import VideoDuration
+from src.crud.titles_crud import TitlesCrud
 
 celery = Celery(__name__)
 celery.conf.broker_url = os.environ.get("CELERY_BROKER_URL")
@@ -112,10 +119,46 @@ async def check_parser(parser_id: str):
     check_parser_wrapper.apply_async((parser_id,), countdown=timeout)
 
 
+async def get_episode_duration(episode: Episode):
+    async with get_async_session_context() as session:
+        episode_id = episode.id
+        episodes_crud = EpisodesCrud(session)
+        db_episode = await episodes_crud.get_by_id(episode_id)
+        if not db_episode or db_episode.duration_fetched:
+            return
+        video_duration = None
+        try:
+            video_duration = VideoDuration(episode.links[0].link)
+            duration = video_duration.get_duration_from_m3u8(
+            ) if episode.is_m3u8 else video_duration.get_duration()
+            print(f"Duration for {episode_id}: {duration}")
+        except Exception as e:
+            print(f"Error while getting duration for {episode_id}: {e}")
+            duration = None
+        episode.seconds = duration
+        await episodes_crud.update_episode_duration(episode=db_episode, duration=duration)
+
+
+@celery.task(name="get_episode_duration_task")
+def get_episode_duration_wrapper(episode: dict):
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(get_episode_duration(Episode(**episode)))
+
+
 @celery.task(name="check_parser_task")
 def check_parser_wrapper(parser_id: str):
     loop = asyncio.get_event_loop()
     loop.run_until_complete(check_parser(parser_id))
+
+
+@celery.task(name="get_episodes_duration_task")
+def get_episodes_duration(title_episodes: list[dict]):
+    wait = 0
+    for episode in title_episodes:
+        if not episode['seconds']:
+            get_episode_duration_wrapper.apply_async(
+                (episode,), countdown=wait)
+            wait += 5
 
 
 @celery.on_after_configure.connect

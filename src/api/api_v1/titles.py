@@ -5,6 +5,7 @@ from src.db.session import get_async_session, AsyncSession
 from src.schemas.parsers import FavoriteTitle, Title
 from src.parsers import parsers, parsers_dict
 from src.users_controller import optional_current_user, current_active_user
+from src.worker import get_episodes_duration
 api_router = APIRouter(prefix="/titles", tags=["titles"])
 
 
@@ -39,9 +40,14 @@ async def get_title(background_tasks: BackgroundTasks, title_id: UUID, db: Async
     if not db_title:
         raise HTTPException(status_code=404, detail="Title not found.")
     parser = parsers_dict[db_title.parser_id]
-    return await parser.get_title(
+    title_obj, updated = await parser.get_title(
         db_title=db_title,
         db=db,
         background_tasks=background_tasks,
         current_user=current_user
     )
+    if updated:
+        get_episodes_duration.apply_async(
+            args=[title_obj.model_dump()['episodes']]
+        )
+    return title_obj
