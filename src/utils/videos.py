@@ -1,14 +1,16 @@
+import m3u8
 import struct
 import requests
 
 
 class VideoDuration:
-    def __init__(self, url):
+    def __init__(self, url, use_m3u8=False):
         self.url = url
         self.seek = 0
         self.duration = 0
         self.s = requests.session()
         self.timeout = 6
+        self.use_m3u8 = use_m3u8
         self.s.headers = {
             'Connection': 'keep-alive',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
@@ -21,10 +23,14 @@ class VideoDuration:
         if type in ['moov', 'duration']:
             self.s.headers['Range'] = 'bytes={}-{}'.format(seek, seek + 7)
 
-    def _send_request(self):
+    def _send_request(self, url=None):
         try:
-            data = self.s.get(url=self.url, stream=True,
-                              timeout=self.timeout).raw.read()
+            data = self.s.get(url=url or self.url, stream=True if not self.use_m3u8 else False,
+                              timeout=self.timeout)
+            if self.use_m3u8:
+                return data.content
+            else:
+                return data.raw.read()
         except requests.Timeout:
             raise "Request timeout"
         return data
@@ -44,20 +50,23 @@ class VideoDuration:
         return time_scale, duration
 
     def get_duration(self):
-        while True:
-            size, flag = self._find_moov_request()
-            if flag == 'moov':
-                time_scale, duration = self._find_duration_request()
-                self.duration = duration/time_scale
-                return self.duration
-            else:
-                self.seek += size
-
-    def get_duration_from_m3u8(self):
-        playlist_data = self._send_request().decode('utf-8')
-        lines = playlist_data.split('\n')
-        for line in lines:
-            if line.startswith('#EXTINF:'):
-                duration = float(line.split(':')[1].split(',')[0])
-                self.duration = duration
-                return self.duration
+        if self.use_m3u8:
+            playlist_data = self._send_request().decode('utf-8')
+            lines = playlist_data.splitlines()
+            for line in lines:
+                if line.startswith("https"):
+                    playlist_data = self._send_request(line).decode('utf-8')
+                    playlist = m3u8.loads(playlist_data)
+                    for segment in playlist.segments:
+                        if segment.duration:
+                            self.duration += segment.duration
+                    return self.duration
+        else:
+            while True:
+                size, flag = self._find_moov_request()
+                if flag == 'moov':
+                    time_scale, duration = self._find_duration_request()
+                    self.duration = duration/time_scale
+                    return self.duration
+                else:
+                    self.seek += size

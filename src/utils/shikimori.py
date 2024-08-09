@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import json
 from fastapi import BackgroundTasks
 from src.schemas.parsers import ParsedTitle, ShikimoriTitle
 from src.redis.services import CacheService
@@ -46,7 +47,8 @@ class Shikimori:
 
     async def get_title(self, title: ParsedTitle) -> ShikimoriTitle:
         async with aiohttp.ClientSession() as session:
-            name = (title.en_name or title.name).replace('"', '\\"')
+            name = json.dumps(title.en_name or title.name)
+            name = name[1:-1]
             query = "{" + f'animes(search: "{name}", limit: 1' + \
                 (f', kind: "{title.kind}"' if title.kind else '') + \
                 ')' + anime_schema + "}"
@@ -54,6 +56,8 @@ class Shikimori:
                 "query": query
             }) as response:
                 data = await response.json()
+                if not data.get('data'):
+                    return
                 title_info = data['data']['animes']
                 if len(title_info) > 0:
                     return await self.service.set_shikimori_title(title_info[0]['id'], title_info[0])

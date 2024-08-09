@@ -128,9 +128,9 @@ async def get_episode_duration(episode: Episode):
             return
         video_duration = None
         try:
-            video_duration = VideoDuration(episode.links[0].link)
-            duration = video_duration.get_duration_from_m3u8(
-            ) if episode.is_m3u8 else video_duration.get_duration()
+            video_duration = VideoDuration(
+                episode.links[0].link, use_m3u8=episode.is_m3u8)
+            duration = video_duration.get_duration()
             print(f"Duration for {episode_id}: {duration}")
         except Exception as e:
             print(f"Error while getting duration for {episode_id}: {e}")
