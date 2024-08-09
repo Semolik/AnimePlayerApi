@@ -25,7 +25,7 @@ async def get_parsers():
 
 
 @api_router.get("/{parser_id}/titles", response_model=TitlesPage)
-async def get_titles(parser_id: ParserId, background_tasks: BackgroundTasks, page: int = Query(1, ge=1), db: AsyncSession = Depends(get_async_session)):
+async def get_titles(parser_id: ParserId, background_tasks: BackgroundTasks, page: int = Query(1, ge=1), db: AsyncSession = Depends(get_async_session)):  # type: ignore
     parser = parsers_dict[parser_id]
     return await parser.get_titles(
         page=page,
@@ -35,7 +35,7 @@ async def get_titles(parser_id: ParserId, background_tasks: BackgroundTasks, pag
 
 
 @api_router.get("/{parser_id}/titles/main", response_model=MainPage)
-async def get_main_titles(parser_id: ParserId, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_async_session)):
+async def get_main_titles(parser_id: ParserId, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_async_session)):  # type: ignore
     parser = parsers_dict[parser_id]
     page = await parser.get_main_titles(background_tasks=background_tasks, db=db)
     page_obj = MainPage.model_validate(page, from_attributes=True)
@@ -44,6 +44,6 @@ async def get_main_titles(parser_id: ParserId, background_tasks: BackgroundTasks
 
 
 @api_router.get("/{parser_id}/genres", response_model=list[Genre])
-async def get_genres(parser_id: ParserId, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_async_session)):
+async def get_genres(parser_id: ParserId, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_async_session)):  # type: ignore
     parser = parsers_dict[parser_id]
     return await parser.get_genres(background_tasks=background_tasks, db=db)

@@ -46,8 +46,10 @@ async def get_title(background_tasks: BackgroundTasks, title_id: UUID, db: Async
         background_tasks=background_tasks,
         current_user=current_user
     )
-    if updated:
+    episodes = title_obj.episodes
+    has_no_time = any(not episode.duration for episode in episodes)
+    if has_no_time:
         get_episodes_duration.apply_async(
-            args=[title_obj.model_dump()['episodes']]
+            args=[[episode.model_dump() for episode in episodes]]
         )
     return title_obj

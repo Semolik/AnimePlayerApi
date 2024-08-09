@@ -33,7 +33,6 @@ class VideoDuration:
                 return data.raw.read()
         except requests.Timeout:
             raise "Request timeout"
-        return data
 
     def _find_moov_request(self):
         self._set_headers(self.seek, type='moov')

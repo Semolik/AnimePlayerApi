@@ -159,8 +159,11 @@ class Parser(ABC):
                 setattr(title_db_obj, key, value)
         title_db_obj.episodes = await self.prepare_episodes(title=title_obj, title_id=db_title.id, db=db, background_tasks=background_tasks, service=service, current_user=current_user)
         title_db_obj.shikimori = shikimori_title
-        if not title_obj.duration and shikimori_title:
-            title_db_obj.duration = f"{shikimori_title.data['duration']} мин." if shikimori_title.data['duration'] else None
+        if not title_obj.duration:
+            if shikimori_title:
+                title_db_obj.duration = f"{shikimori_title.data['duration']} мин." if shikimori_title.data['duration'] else None
+            if not title_db_obj.duration and title_db_obj.episodes:
+                title_db_obj.duration = f'{title_db_obj.episodes[0].duration // 60} мин.' if title_db_obj.episodes[0].duration else None
         title_db_obj.related = await self._prepare_related_titles(title_id=db_title.id, related_titles=title_obj.related_titles, db=db)
         recommended_titles = await self._prepare_titles(
             titles_page=ParsedTitlesPage(titles=title_obj.recommended_titles, total_pages=0), db=db, background_tasks=background_tasks)
@@ -170,6 +173,10 @@ class Parser(ABC):
         if current_user:
             title_db_obj.liked = await TitlesCrud(db).title_is_favorite(
                 title_id=db_title.id, user_id=current_user.id)
+            current_episode = await EpisodesCrud(db).get_current_title_episode(
+                title_id=db_title.id, user_id=current_user.id)
+            title_db_obj.current_episode = next(
+                (episode for episode in title_db_obj.episodes if episode.id == current_episode.episode_id), None) if current_episode else None
         return title_db_obj
 
     async def update_titles(self, page: int, service: CacheService, raise_error: bool = False) -> List[ParsedTitleShort]:

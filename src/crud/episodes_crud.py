@@ -49,7 +49,7 @@ class EpisodesCrud(BaseCRUD):
         episode.duration_fetched = True
         return await self.update(episode)
 
-    async def get_current_title_episode(self, title_id: UUID, user_id: UUID) -> Episode:
+    async def get_current_title_episode(self, title_id: UUID, user_id: UUID) -> CurrentEpisode:
         query = select(CurrentEpisode).join(Episode, Episode.id == CurrentEpisode.episode_id).join(
             Title, Title.id == Episode.title_id).where(Title.id == title_id, CurrentEpisode.user_id == user_id)
         return (await self.db.execute(query)).scalar()

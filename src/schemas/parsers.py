@@ -137,6 +137,7 @@ class Title(TitleShort):
     series_info: str | None = None
     year: str | None = None
     liked: bool = False
+    current_episode: Episode | None = None
     genres: list[Genre] = []
     episodes: list[Episode] = []
     related: list[TitleLink] = []
