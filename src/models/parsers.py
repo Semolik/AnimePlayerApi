@@ -52,6 +52,11 @@ class EpisodeProgress(Base):
         "users.id"), primary_key=True)
     progress = Column(Integer, nullable=False)
     seconds = Column(Integer, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
 
 
 class CurrentEpisode(Base):

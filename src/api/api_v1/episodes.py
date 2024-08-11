@@ -2,10 +2,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from src.crud.episodes_crud import EpisodesCrud
 from src.db.session import get_async_session, AsyncSession
-from src.schemas.parsers import Episode, ParsedTitle, TitleEpisode
+from src.schemas.parsers import Episode, TitleEpisode, TitleShort
 from src.parsers import parsers_dict
 from src.users_controller import current_active_user
-from src.worker import get_episode_duration
 api_router = APIRouter(prefix="/episodes", tags=["episodes"])
 
 
@@ -14,7 +13,7 @@ async def get_episodes(page: int = Query(1, ge=1), db: AsyncSession = Depends(ge
     episodes_info = await EpisodesCrud(db).get_current_episodes(user_id=current_user.id, page=page)
     episodes = []
     for episode in episodes_info:
-        parser = parsers_dict[episode[2]]
+        parser = parsers_dict[episode[3]]
         service = await parser.get_service()
         title_data, updated = await parser.get_title_data(
             db_title=episode[0].title,
@@ -30,14 +29,13 @@ async def get_episodes(page: int = Query(1, ge=1), db: AsyncSession = Depends(ge
             service=service,
             db=db,
             parsed_episode=parsed_episode)
-        if updated:
-            get_episode_duration.apply_async(
-                args=[prepared_episode])
         prepared_episode.image_url = title_data.image_url
         episodes.append(
             TitleEpisode(
                 **prepared_episode.model_dump(),
                 title_id=episode[0].title_id,
+                title=TitleShort.model_validate(
+                    episode[0].title, from_attributes=True),
             )
         )
     return episodes

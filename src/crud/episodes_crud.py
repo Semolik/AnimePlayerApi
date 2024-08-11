@@ -1,6 +1,5 @@
 from uuid import UUID
-from sqlalchemy import desc, func, select
-from sqlalchemy.orm import aliased
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 from src.crud.base import BaseCRUD
 from src.models.parsers import Episode, EpisodeProgress, CurrentEpisode, Title
@@ -26,6 +25,16 @@ class EpisodesCrud(BaseCRUD):
         end = page * per_page
         start = end - per_page
 
+        subquery = (
+            select(
+                Episode.title_id,
+                func.max(Episode.number).label('max_number')
+            )
+            .join(CurrentEpisode, (CurrentEpisode.episode_id == Episode.id) & (CurrentEpisode.user_id == user_id))
+            .group_by(Episode.title_id)
+            .subquery()
+        )
+
         query = (
             select(
                 Episode,
@@ -33,13 +42,13 @@ class EpisodesCrud(BaseCRUD):
                 EpisodeProgress.seconds,
                 Title.parser_id
             )
-            .outerjoin(EpisodeProgress)
+            .join(subquery, (Episode.title_id == subquery.c.title_id) & (Episode.number == subquery.c.max_number))
+            .join(EpisodeProgress, EpisodeProgress.episode_id == Episode.id)
             .join(Title, Title.id == Episode.title_id)
-            .join(CurrentEpisode, (CurrentEpisode.episode_id == Episode.id) & (CurrentEpisode.user_id == user_id))
-            .order_by(Episode.title_id, desc(Episode.number))
+            .order_by(EpisodeProgress.updated_at.desc())
             .options(selectinload(Episode.title))
-            .distinct(Episode.title_id)
         )
+
         query = query.slice(start, end)
         query = await self.db.execute(query)
         return query.all()
@@ -55,8 +64,8 @@ class EpisodesCrud(BaseCRUD):
         return (await self.db.execute(query)).scalar()
 
     async def unset_current_title_episode(self, title_id: UUID, user_id: UUID):
-        query = select(CurrentEpisode).where(
-            CurrentEpisode.episode_id == title_id, CurrentEpisode.user_id == user_id)
+        query = select(CurrentEpisode).join(Episode, Episode.id == CurrentEpisode.episode_id).where(
+            Episode.title_id == title_id, CurrentEpisode.user_id == user_id)
         current_episode = (await self.db.execute(query)).scalar()
         if current_episode:
             return await self.delete(current_episode)

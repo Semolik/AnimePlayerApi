@@ -1,13 +1,12 @@
 import re
-from uuid import UUID
 import aiohttp
 import requests
 from src.schemas.parsers import Episode, Genre, ParsedGenre, ParsedEpisode, ParsedLink, ParsedTitle, ParsedTitleShort, ParsedTitlesPage, TitlesPage
 from src.redis.services import CacheService
 from src.utils.parsers import Parser, ParserFunctions
 from fastapi import APIRouter, BackgroundTasks, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
-from src.db.session import AsyncSession, async_session_maker
+from fastapi.responses import StreamingResponse
+from src.db.session import AsyncSession
 from src.core.config import settings
 from bs4 import BeautifulSoup
 from src.crud.genres_crud import GenresCrud
@@ -41,6 +40,10 @@ async def get_main_page(session: aiohttp.ClientSession) -> list[ParsedTitleShort
                         genres_names = parts[1].split(', ')
                     if 'upposter2' == parts[0]:
                         img = f'{WEBSITE_URL}/uploads/posts/{parts[1].split("&")[0]}'
+                    if 'poster' == parts[0]:
+                        img = f'{WEBSITE_URL}/uploads/posts/{parts[1].split("&")[0]}'
+            if not img:
+                continue
             titles.append(ParsedTitleShort(
                 id_on_website=title['id'],
                 name=get_original_title(title['title']),

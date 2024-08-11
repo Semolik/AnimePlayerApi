@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
     SHIKIMORI_EXPIRATION_HOURS: int = 24
-    titles_cache_hours: int = 12
+    titles_cache_hours: int = 6
     genres_cache_hours: int = 24 * 7
     USERS_OPEN_REGISTRATION: bool = True
 

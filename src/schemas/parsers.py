@@ -126,6 +126,7 @@ class Episode(BaseModel):
 
 class TitleEpisode(Episode):
     title_id: uuid.UUID
+    title: TitleShort
     image_url: str
 
     class Config:

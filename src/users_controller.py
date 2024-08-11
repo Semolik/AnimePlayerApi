@@ -6,19 +6,15 @@ from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
 from fastapi_users.authentication import (
     AuthenticationBackend,
-    BearerTransport,
     JWTStrategy,
 )
 from fastapi_users.db import SQLAlchemyUserDatabase
 from src.models.users import User
 from src.schemas.users import UserReadWithEmail
-from os import getenv
 from src.db.session import get_async_session, AsyncSession, get_async_session_context
 from src.schemas.users import UserCreate
 from fastapi_users.exceptions import UserAlreadyExists
 from fastapi_users.authentication import CookieTransport
-from src.mail.conf import conf
-from fastapi_mail import FastMail, MessageSchema, MessageType
 from src.core.config import settings
 from src.worker import send_verify_email_wrapper, send_reset_password_email_wrapper
 
