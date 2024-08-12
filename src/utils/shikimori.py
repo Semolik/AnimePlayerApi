@@ -44,9 +44,12 @@ anime_schema = """
 class Shikimori:
     def __init__(self, service: CacheService) -> None:
         self.service = service
+        self.timeout = aiohttp.ClientTimeout(total=5)
 
     async def get_title(self, title: ParsedTitle) -> ShikimoriTitle:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(
+            timeout=self.timeout
+        ) as session:
             name = json.dumps(title.en_name or title.name)
             name = name[1:-1]
             query = "{" + f'animes(search: "{name}", limit: 1' + \
@@ -63,7 +66,9 @@ class Shikimori:
                     return await self.service.set_shikimori_title(title_info[0]['id'], title_info[0])
 
     async def update_shikimori_title(self, title_id: int):
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(
+            timeout=self.timeout
+        ) as session:
             async with session.post(API_URL, json={
                 "query": "{" + f'animes(ids: "{title_id}")' + anime_schema + "}"
             }) as response:

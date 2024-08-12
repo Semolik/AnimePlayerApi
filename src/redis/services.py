@@ -67,17 +67,23 @@ class CacheService:
         if keys:
             await self._redis.delete(*keys)
 
-    async def get_shikimori_title(self, title_id: int):
+    async def get_shikimori_title(self, title_id: UUID):
         cached = await self._redis.get(f"shikimori:{title_id}")
         if cached:
             return ShikimoriTitle(**json.loads(cached))
 
-    async def set_shikimori_title(self, title_id: int, title: dict):
+    async def set_shikimori_title(self, title_id: UUID, title: dict):
         title_data = ShikimoriTitle(last_fetch=datetime.now(), data=title)
         obj = title_data.model_dump()
         obj['last_fetch'] = obj['last_fetch'].isoformat()
         await self._redis.set(f"shikimori:{title_id}", json.dumps(obj))
         return title_data
+
+    async def set_shikimori_fail(self, title_id: UUID):
+        await self._redis.set(f"shikimori:{title_id}:fail", 1, ex=60*5)
+
+    async def shikimori_fail_status(self, title_id: UUID) -> bool:
+        return bool(await self._redis.get(f"shikimori:{title_id}:fail"))
 
     async def get_link_by_hash(self, hash: str):
         return await self._redis.get(f"link:{hash}")

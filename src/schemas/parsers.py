@@ -144,6 +144,7 @@ class Title(TitleShort):
     related: list[TitleLink] = []
     recommended: list[TitleShort] = []
     shikimori: ShikimoriTitle | None = None
+    shikimori_failed: bool = False
     duration: str | None = None
     episodes_message: str | None = None
 

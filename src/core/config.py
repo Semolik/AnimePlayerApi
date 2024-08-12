@@ -30,8 +30,10 @@ class Settings(BaseSettings):
     genres_cache_hours: int = 24 * 7
     USERS_OPEN_REGISTRATION: bool = True
 
-    shikimori_kinds: List[str] = ["tv", "movie", "ova", "ona", "special", "tv_special",
-                                  "music", "pv", "cm", "tv_13", "tv_24", "tv_48"]
+    shikimori_kinds: List[str] = ["tv", "movie", "ova", "ona", "special",
+                                  "tv_special",           "music", "pv", "cm", "tv_13", "tv_24", "tv_48"]
+    message_colors: List[str] = ["primary", "red", "orange", "amber", "yellow", "lime", "green", "emerald",
+                                 "teal", "cyan", "sky", "blue", "indigo", "violet", "purple", "fuchsia", "pink", "rose"]
 
     @property
     def POSTGRES_URI(self) -> PostgresDsn:

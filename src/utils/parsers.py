@@ -115,14 +115,20 @@ class Parser(ABC):
         return title_obj
 
     async def _prepare_title_shikimori(self, title_obj: ParsedTitle, db_title: TitleModel, db: AsyncSession, service: CacheService, background_tasks: BackgroundTasks) -> tuple[TitleModel, ShikimoriTitle]:
-        if not db_title.shikimori_fetched:
-            shikimori_title = await Shikimori(service=service).get_title(title_obj)
-            db_title = await TitlesCrud(db).update_shikimori_info(db_title=db_title, shikimori_id=int(shikimori_title.data['id']) if shikimori_title else None)
-        elif db_title.shikimori_id:
-            shikimori_title = await Shikimori(service=service).get_shikimori_title(title_id=db_title.shikimori_id, background_tasks=background_tasks)
-        else:
-            shikimori_title = None
-        return db_title, shikimori_title
+        fail_status = await service.shikimori_fail_status(title_id=db_title.id)
+        shikimori_title = None
+        if not fail_status:
+            try:
+                if not db_title.shikimori_fetched:
+                    shikimori_title = await Shikimori(service=service).get_title(title_obj)
+                    db_title = await TitlesCrud(db).update_shikimori_info(db_title=db_title, shikimori_id=int(shikimori_title.data['id']) if shikimori_title else None)
+                elif db_title.shikimori_id:
+                    shikimori_title = await Shikimori(service=service).get_shikimori_title(title_id=db_title.shikimori_id, background_tasks=background_tasks)
+            except Exception as e:
+                logger.error(f'Failed to fetch shikimori info: {e}')
+                fail_status = True
+                await service.set_shikimori_fail(title_id=db_title.id)
+        return db_title, shikimori_title, fail_status
 
     @abstractmethod
     async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, seconds: int, db: AsyncSession, service: CacheService) -> Episode:
@@ -152,13 +158,14 @@ class Parser(ABC):
         elif await self.title_data_changed(title_obj, db_title):
             background_tasks.add_task(
                 self.update_title_in_db, title_id=db_title.id, db=db, title_data=title_obj)
-        db_title, shikimori_title = await self._prepare_title_shikimori(title_obj=title_obj, db_title=db_title, db=db, service=service, background_tasks=background_tasks)
+        db_title, shikimori_title, fetch_failed = await self._prepare_title_shikimori(title_obj=title_obj, db_title=db_title, db=db, service=service, background_tasks=background_tasks)
         title_db_obj = Title.model_validate(db_title)
         for key, value in title_obj.model_dump().items():
             if hasattr(title_db_obj, key):
                 setattr(title_db_obj, key, value)
         title_db_obj.episodes = await self.prepare_episodes(title=title_obj, title_id=db_title.id, db=db, background_tasks=background_tasks, service=service, current_user=current_user)
         title_db_obj.shikimori = shikimori_title
+        title_db_obj.shikimori_failed = fetch_failed
         if not title_obj.duration:
             if shikimori_title:
                 title_db_obj.duration = f"{shikimori_title.data['duration']} мин." if shikimori_title.data['duration'] else None

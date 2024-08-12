@@ -9,6 +9,7 @@ class Message(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     content = Column(String, nullable=False)
     order = Column(Integer, nullable=False, default=0)
+    color = Column(String)
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now()
