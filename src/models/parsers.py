@@ -1,4 +1,3 @@
-from typing import List
 from uuid import uuid4
 from src.db.base import Base
 from sqlalchemy import UUID,  Column, Integer, String, DateTime, func, ForeignKey, Boolean

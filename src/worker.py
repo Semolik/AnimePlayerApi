@@ -1,8 +1,6 @@
 import asyncio
 import os
-from uuid import UUID
 from celery import Celery
-from fastapi import BackgroundTasks
 from fastapi_mail import FastMail, MessageSchema, MessageType
 from src.schemas.parsers import Episode
 from src.crud.episodes_crud import EpisodesCrud
@@ -13,7 +11,6 @@ from src.core.config import settings
 from src.mail.conf import conf
 from src.db.session import get_async_session_context
 from src.utils.videos import VideoDuration
-from src.crud.titles_crud import TitlesCrud
 
 celery = Celery(__name__)
 celery.conf.broker_url = os.environ.get("CELERY_BROKER_URL")

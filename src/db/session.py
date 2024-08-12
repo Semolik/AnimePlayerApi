@@ -3,13 +3,10 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from typing import AsyncGenerator
 from src.core.config import settings
 from src.db.base import Base
-from src.models.users import *
-from src.models.parsers import *
-from src.models.files import *
+from src.models import *
 
 
-engine = create_async_engine(
-    f"{settings.POSTGRES_SCHEME}://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_SERVER}/{settings.POSTGRES_DB}")
+engine = create_async_engine(settings.POSTGRES_URI)
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
 
 

@@ -30,7 +30,7 @@ Ensure you have the following installed on your system:
 
 To start the API using Docker, run the following command:
 
-    docker-compose up --build
+    docker-compose up
 
 ### Parsers
 
@@ -39,3 +39,15 @@ Parsers for fetching anime data are located in the src/parsers directory. You ca
 ### Usage
 
 Once the API is running, you can access the endpoints via http://localhost:8000.
+
+### Development
+
+#### Creating a Migration
+
+To create a migration using Alembic, make sure the Docker container is running and then run the following command inside the container:
+
+```bash
+docker-compose exec app alembic revision --autogenerate -m "message"
+```
+
+Replace "message" with a descriptive message for your migration.

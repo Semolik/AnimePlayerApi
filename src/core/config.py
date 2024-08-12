@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     shikimori_kinds: List[str] = ["tv", "movie", "ova", "ona", "special", "tv_special",
                                   "music", "pv", "cm", "tv_13", "tv_24", "tv_48"]
 
+    @property
+    def POSTGRES_URI(self) -> PostgresDsn:
+        return f"{settings.POSTGRES_SCHEME}://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_SERVER}/{settings.POSTGRES_DB}"
+
     class Config:
         case_sensitive = True
 

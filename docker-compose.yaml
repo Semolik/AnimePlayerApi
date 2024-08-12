@@ -16,11 +16,27 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      migration:
+        condition: service_completed_successfully
     volumes:
       - .:/usr/src
 
   redis:
     image: redis:latest
+
+  migration:
+    container_name: migration
+    build: .
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=redis
+      - PYTHONPATH=/usr/src
+    command: alembic upgrade head
+    depends_on:
+      - database
+    volumes:
+      - .:/usr/src
 
   worker:
     build: .
@@ -34,8 +50,12 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - REDIS_HOST=redis
     depends_on:
-      - app
-      - redis
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      migration:
+        condition: service_completed_successfully
 
   database:
     image: library/postgres:alpine
