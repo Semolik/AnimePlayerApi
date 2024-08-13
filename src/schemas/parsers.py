@@ -124,6 +124,14 @@ class Episode(BaseModel):
         return None
 
 
+class TitleEpisodes(BaseModel):
+    title: TitleShort
+    episodes: list[Episode]
+
+    class Config:
+        from_attributes = True
+
+
 class TitleEpisode(Episode):
     title_id: uuid.UUID
     title: TitleShort

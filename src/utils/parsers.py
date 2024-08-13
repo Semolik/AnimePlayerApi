@@ -47,21 +47,23 @@ class Parser(ABC):
     def get_custom_router(self):
         pass
 
-    async def get_title_data(self, db_title: TitleModel, service: CacheService) -> tuple[ParsedTitle, bool]:
+    async def get_title_data(self, db_title: TitleModel, service: CacheService) -> ParsedTitle:
         title_id = db_title.id
         is_expired, cached_title = await self._get_cached_title(title_id, service)
-        updated = False
         if not cached_title or is_expired or not db_title.image_url:
             title_obj = await self._update_title_cache(db_title.id_on_website, title_id, service)
-            updated = True
         else:
             title_obj = ParsedTitle(**cached_title)
-        return title_obj, updated
+        return title_obj
 
-    async def get_title(self, db_title: TitleModel, background_tasks: BackgroundTasks, db: AsyncSession, current_user: UserModel, service: CacheService = Depends(Provide[Container.service])) -> tuple[Title, bool]:
-        title_obj, updated = await self.get_title_data(db_title=db_title, service=service)
+    async def get_title(self, db_title: TitleModel, background_tasks: BackgroundTasks, db: AsyncSession, current_user: UserModel, service: CacheService = Depends(Provide[Container.service])) -> Title:
+        title_obj = await self.get_title_data(db_title=db_title, service=service)
         title_result_obj = await self._prepare_title(title_obj=title_obj, db_title=db_title, db=db, background_tasks=background_tasks, current_user=current_user, service=service)
-        return title_result_obj, updated
+        return title_result_obj
+
+    async def get_title_episodes(self, db_title: TitleModel, db: AsyncSession, current_user: UserModel, service: CacheService = Depends(Provide[Container.service])) -> List[Episode]:
+        title_obj = await self.get_title_data(db_title=db_title, service=service)
+        return await self.prepare_episodes(title=title_obj, title_id=db_title.id, db=db, service=service, current_user=current_user)
 
     async def get_titles(self, page: int, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> TitlesPage:
         is_expired = await service.expire_status(parser_id=self.parser_id)
@@ -134,7 +136,7 @@ class Parser(ABC):
     async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, seconds: int, db: AsyncSession, service: CacheService) -> Episode:
         pass
 
-    async def prepare_episodes(self, title: ParsedTitle, title_id: UUID, db: AsyncSession, background_tasks: BackgroundTasks, service: CacheService, current_user: UserModel) -> List[Episode]:
+    async def prepare_episodes(self, title: ParsedTitle, title_id: UUID, db: AsyncSession, service: CacheService, current_user: UserModel) -> List[Episode]:
         result = []
         user_id = current_user.id if current_user else None
         episodes = await EpisodesCrud(db).get_episodes_by_title_id(title_id=title_id, user_id=user_id)
@@ -163,7 +165,7 @@ class Parser(ABC):
         for key, value in title_obj.model_dump().items():
             if hasattr(title_db_obj, key):
                 setattr(title_db_obj, key, value)
-        title_db_obj.episodes = await self.prepare_episodes(title=title_obj, title_id=db_title.id, db=db, background_tasks=background_tasks, service=service, current_user=current_user)
+        title_db_obj.episodes = await self.prepare_episodes(title=title_obj, title_id=db_title.id, db=db, service=service, current_user=current_user)
         title_db_obj.shikimori = shikimori_title
         title_db_obj.shikimori_failed = fetch_failed
         if not title_obj.duration:

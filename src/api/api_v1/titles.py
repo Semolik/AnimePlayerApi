@@ -2,7 +2,7 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from src.crud.titles_crud import TitlesCrud
 from src.db.session import get_async_session, AsyncSession
-from src.schemas.parsers import FavoriteTitle, Title
+from src.schemas.parsers import TitleEpisodes, FavoriteTitle, Title
 from src.parsers import parsers, parsers_dict
 from src.users_controller import optional_current_user, current_active_user
 from src.worker import get_episodes_duration
@@ -40,7 +40,7 @@ async def get_title(background_tasks: BackgroundTasks, title_id: UUID, db: Async
     if not db_title:
         raise HTTPException(status_code=404, detail="Title not found.")
     parser = parsers_dict[db_title.parser_id]
-    title_obj, updated = await parser.get_title(
+    title_obj = await parser.get_title(
         db_title=db_title,
         db=db,
         background_tasks=background_tasks,
@@ -53,3 +53,17 @@ async def get_title(background_tasks: BackgroundTasks, title_id: UUID, db: Async
             args=[[episode.model_dump() for episode in episodes]]
         )
     return title_obj
+
+
+@api_router.get("/{title_id}/episodes", response_model=TitleEpisodes)
+async def get_episodes(title_id: UUID, db: AsyncSession = Depends(get_async_session), current_user=Depends(optional_current_user)):
+    db_title = await TitlesCrud(db).get_title_by_id(title_id=title_id)
+    if not db_title:
+        raise HTTPException(status_code=404, detail="Title not found.")
+    parser = parsers_dict[db_title.parser_id]
+    episodes = await parser.get_title_episodes(
+        db_title=db_title,
+        db=db,
+        current_user=current_user
+    )
+    return TitleEpisodes(episodes=episodes, title=db_title)

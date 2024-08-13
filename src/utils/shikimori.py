@@ -52,9 +52,8 @@ class Shikimori:
         ) as session:
             name = json.dumps(title.en_name or title.name)
             name = name[1:-1]
-            query = "{" + f'animes(search: "{name}", limit: 1' + \
-                (f', kind: "{title.kind}"' if title.kind else '') + \
-                ')' + anime_schema + "}"
+            query = "{" + \
+                f'animes(search: "{name}", limit: 1)' + anime_schema + "}"
             async with session.post(API_URL, json={
                 "query": query
             }) as response:
