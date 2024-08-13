@@ -5,7 +5,7 @@ from src.schemas.parsers import Episode, Genre, ParsedGenre, ParsedEpisode, Pars
 from src.redis.services import CacheService
 from src.utils.parsers import Parser, ParserFunctions
 from fastapi import APIRouter, BackgroundTasks, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from src.db.session import AsyncSession
 from src.core.config import settings
 from bs4 import BeautifulSoup
@@ -289,7 +289,6 @@ class AnidubParser(Parser):
     async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, seconds: int, db: AsyncSession, service: CacheService) -> Episode:
         link = parsed_episode.links[0].link
         if parsed_episode.is_m3u8:
-
             result_link = f'https://player.ladonyvesna2005.info/vid.php?v=/{link}'
         else:
             link_hash = hashlib.md5(link.encode()).hexdigest()
@@ -309,11 +308,10 @@ class AnidubParser(Parser):
             image_url=parsed_episode.preview,
             progress=progress,
             seconds=seconds,
-            is_m3u8=True
+            is_m3u8=parsed_episode.is_m3u8
         )
 
     async def get_episode(self, link_hash: str) -> StreamingResponse:
-        raise NotImplementedError
         service = await self.get_service()
         link = await service.get_link_by_hash(link_hash)
         if not link:
@@ -321,7 +319,7 @@ class AnidubParser(Parser):
                 status_code=404, detail="Link not found")
         content = await service.get_link_content(link)
         if content:
-            return content
+            return RedirectResponse(content)
 
         async with aiohttp.ClientSession() as session:
             async with session.get(link) as response:
@@ -336,6 +334,8 @@ class AnidubParser(Parser):
                         content = await response.text()
                     elif response.status == 302:
                         content = 'http:' + response.headers['Location']
+                    await service.set_link_content(link, content)
+                    return RedirectResponse(content)
 
     def get_custom_router(self):
         api_router = APIRouter()
