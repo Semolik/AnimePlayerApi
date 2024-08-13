@@ -1,1 +1,1 @@
-from src.db.base_class import Base, BaseModel  # noqa
+from src.db.base_class import Base

@@ -65,6 +65,15 @@ class TitlesCrud(BaseCRUD):
         query = select(Title).where(Title.id == title_id)
         return (await self.db.execute(query)).scalar()
 
+    async def get_title_on_other_parsers(self, title: Title) -> list[Title]:
+        if not title.shikimori_id:
+            return []
+        query = select(Title).where(
+            Title.shikimori_id == title.shikimori_id,
+            Title.parser_id != title.parser_id, Title.id != title.id
+        )
+        return (await self.db.execute(query)).scalars().all()
+
     async def get_favorite_title(self, title_id: UUID, user_id: UUID) -> FavoriteTitle:
         query = select(FavoriteTitle).where(
             FavoriteTitle.title_id == title_id, FavoriteTitle.user_id == user_id)

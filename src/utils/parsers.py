@@ -179,6 +179,7 @@ class Parser(ABC):
         title_db_obj.recommended = recommended_titles.titles
         title_db_obj.genres = await self._prepare_genres_names(
             genres_names=title_obj.genres_names, db=db, background_tasks=background_tasks)
+        title_db_obj.on_other_parsers = await TitlesCrud(db).get_title_on_other_parsers(title=db_title)
         if current_user:
             title_db_obj.liked = await TitlesCrud(db).title_is_favorite(
                 title_id=db_title.id, user_id=current_user.id)
@@ -217,7 +218,7 @@ class Parser(ABC):
 
     async def update_title(self, id_on_website: str, title_id: UUID, service: CacheService, db: AsyncSession, raise_error: bool = False) -> ParsedTitle:
         try:
-            title = await self.functions.get_title(id_on_website)
+            title: ParsedTitleShort = await self.functions.get_title(id_on_website)
             if title.related_titles:
                 related_titles = await self._prepare_related_titles(title_id=title_id, related_titles=title.related_titles, db=db)
                 title.related_titles = related_titles

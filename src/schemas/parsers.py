@@ -169,6 +169,7 @@ class Title(TitleShort):
     shikimori_failed: bool = False
     duration: str | None = None
     episodes_message: str | None = None
+    on_other_parsers: list[TitleLink] = []
 
     class Config:
         from_attributes = True
