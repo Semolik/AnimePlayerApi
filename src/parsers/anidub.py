@@ -289,10 +289,11 @@ class AnidubParser(Parser):
     async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, seconds: int, db: AsyncSession, service: CacheService) -> Episode:
         link = parsed_episode.links[0].link
         if parsed_episode.is_m3u8:
-            link_hash = hashlib.md5(link.encode()).hexdigest()
-            await service.set_link_by_hash(link_hash, link)
+
             result_link = f'https://player.ladonyvesna2005.info/vid.php?v=/{link}'
         else:
+            link_hash = hashlib.md5(link.encode()).hexdigest()
+            await service.set_link_by_hash(link_hash, link)
             result_link = f'{settings.API_V1_STR}/parsers/{self.parser_id}/episode?link_hash={link_hash}'
         return Episode(
             id=db_episode.id,

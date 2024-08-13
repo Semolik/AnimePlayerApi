@@ -2,7 +2,7 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from src.crud.genres_crud import GenresCrud
 from src.db.session import get_async_session, AsyncSession
-from src.schemas.parsers import Genre, TitlesPage
+from src.schemas.parsers import Genre, TitlesPage, UniqueGenre
 from src.parsers import parsers_dict
 api_router = APIRouter(prefix="/genres", tags=["genres"])
 
@@ -27,3 +27,8 @@ async def get_genre_titles(background_tasks: BackgroundTasks, genre_id: UUID, pa
         background_tasks=background_tasks,
         db=db
     )
+
+
+@api_router.get("/genres", response_model=list[UniqueGenre])
+async def get_genres(db: AsyncSession = Depends(get_async_session)):
+    return await GenresCrud(db).get_unique_genres()

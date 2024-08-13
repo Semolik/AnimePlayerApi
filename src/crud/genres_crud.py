@@ -1,5 +1,6 @@
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import select, func
+from sqlalchemy.orm import aliased
 from src.crud.base import BaseCRUD
 from src.models.parsers import Genre
 from src.schemas.parsers import ParsedGenre
@@ -30,3 +31,14 @@ class GenresCrud(BaseCRUD):
     async def get_genres(self, parser_id: str) -> list[Genre]:
         query = select(Genre).where(Genre.parser_id == parser_id)
         return (await self.db.execute(query)).scalars().all()
+
+    async def get_unique_genres(self) -> list[Genre]:
+        query = (
+            select(
+                Genre.name,
+                func.array_agg(func.json_build_object(
+                    'id', Genre.id, 'parser_id', Genre.parser_id)).label('variants')
+            )
+            .group_by(Genre.name)
+        )
+        return (await self.db.execute(query)).all()

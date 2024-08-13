@@ -92,10 +92,24 @@ class ParsedGenre(BaseModel):
         from_attributes = True
 
 
-class Genre(BaseModel):
+class GenreBase(BaseModel):
     id: uuid.UUID
-    name: str
     parser_id: str
+
+    class Config:
+        from_attributes = True
+
+
+class Genre(GenreBase):
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class UniqueGenre(BaseModel):
+    name: str
+    variants: list[GenreBase]
 
     class Config:
         from_attributes = True
