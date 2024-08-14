@@ -3,7 +3,7 @@ services:
     container_name: app
     build: .
     ports:
-      - 8000:8000
+      - ${API_PORT}:8000
     env_file:
       - .env
     environment:
@@ -60,8 +60,6 @@ services:
   database:
     image: library/postgres:alpine
     container_name: database
-    ports:
-      - 5432:5432
     env_file:
       - .env
     volumes:
