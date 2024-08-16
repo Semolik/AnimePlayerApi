@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     SECRET: str = secrets.token_urlsafe(32)
     SERVER_NAME: str
-
+    BACKEND_CORS_ORIGINS: str
     PROJECT_NAME: str
 
     FIRST_SUPERUSER_EMAIL: str
@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     @property
     def POSTGRES_URI(self) -> PostgresDsn:
         return f"{settings.POSTGRES_SCHEME}://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_SERVER}/{settings.POSTGRES_DB}"
+
+    @property
+    def BACKEND_CORS_ORIGINS_LIST(self) -> List[str]:
+        return self.BACKEND_CORS_ORIGINS.split(',')
 
     class Config:
         case_sensitive = True
