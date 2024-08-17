@@ -15,7 +15,7 @@ async def get_episodes(page: int = Query(1, ge=1), db: AsyncSession = Depends(ge
     for episode in episodes_info:
         parser = parsers_dict[episode[3]]
         service = await parser.get_service()
-        title_data, updated = await parser.get_title_data(
+        title_data = await parser.get_title_data(
             db_title=episode[0].title,
             service=service,
         )
