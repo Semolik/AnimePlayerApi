@@ -20,9 +20,12 @@ services:
         condition: service_completed_successfully
     volumes:
       - .:/usr/src
+    restart: always
 
   redis:
     image: redis:latest
+    container_name: redis
+    restart: always
 
   migration:
     container_name: migration
@@ -56,6 +59,7 @@ services:
         condition: service_started
       migration:
         condition: service_completed_successfully
+    restart: always
 
   database:
     image: library/postgres:alpine
@@ -69,3 +73,4 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: always
