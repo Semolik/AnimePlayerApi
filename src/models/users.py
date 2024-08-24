@@ -15,7 +15,7 @@ class OAuthAccount(SQLAlchemyBaseOAuthAccountTableUUID, Base):
 class User(SQLAlchemyBaseUserTableUUID, Base):
     __tablename__ = "users"
 
-    name = Column(String, nullable=False)
+    name = Column(String)
     register_date = Column(DateTime(timezone=True), server_default=func.now())
     oauth_accounts: Mapped[List[OAuthAccount]] = relationship(
         "OAuthAccount", lazy="joined"

@@ -9,7 +9,7 @@ class BaseUserEmail(BaseModel):
 
 
 class CustomUserFields(BaseModel):
-    name: str
+    name: str | None = None
 
 
 class UserReadAfterRegister(BaseUser[uuid.UUID], CustomUserFields):
