@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     SERVER_NAME: str
     BACKEND_CORS_ORIGINS: str
     PROJECT_NAME: str
-
+    API_DOMAIN: str
+    FRONTEND_DOMAIN: str
     FIRST_SUPERUSER_EMAIL: str
 
     POSTGRES_SCHEME: str

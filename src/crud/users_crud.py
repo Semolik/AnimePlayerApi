@@ -6,7 +6,6 @@ from src.models.users import User
 from src.schemas.users import UserUpdate
 from src.crud.base import BaseCRUD
 from src.utils.files import save_image
-from passlib.context import CryptContext
 
 from src.users_controller import get_password_hash
 
