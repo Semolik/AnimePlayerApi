@@ -280,7 +280,7 @@ class Parser(ABC):
             related_link = await TitlesCrud(db).create_related_link()
         related_titles_objs = []
         for related_title in related_titles:
-            existing_title = await TitlesCrud(db).get_title_by_website_id(website_id=related_title.id_on_website)
+            existing_title = await TitlesCrud(db).get_title_by_website_id(website_id=related_title.id_on_website, parser_id=self.parser_id)
             if not existing_title:
                 existing_title = await TitlesCrud(db).create_title(related_title, self.parser_id)
             if existing_title.id == title_id:

@@ -1,12 +1,13 @@
-from typing import Literal
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+
+from uuid import UUID
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from src.crud.titles_crud import TitlesCrud
 from src.db.session import get_async_session, AsyncSession
 from src.schemas.parsers import Genre, MainPage, ParserInfo,  TitlesPage
-from src.parsers import parsers, parsers_dict
+from src.parsers import parsers, parsers_dict, ParserId
 
 
 api_router = APIRouter(prefix="/parsers", tags=["parsers"])
-ParserId = Literal[tuple([parser.parser_id for parser in parsers])]  # nopep8 # type: ignore
 
 for parser in parsers:
     custom_router = parser.get_custom_router()
@@ -32,6 +33,17 @@ async def get_titles(parser_id: ParserId, background_tasks: BackgroundTasks, pag
         background_tasks=background_tasks,
         db=db
     )
+
+
+@api_router.get("/{parser_id}/resolve-old-id/{title_id}", response_model=UUID)
+async def resolve_old_id(parser_id: ParserId, title_id: int, db: AsyncSession = Depends(get_async_session)):
+    db_title = await TitlesCrud(db).get_title_by_website_id(website_id=title_id, parser_id=parser_id)
+    if not db_title:
+        title_obj = await parsers_dict[parser_id].functions.get_title(f'{title_id}-')
+        if not title_obj:
+            raise HTTPException(status_code=404, detail="Title not found.")
+        db_title = await TitlesCrud(db).create_title(title_obj, parser_id)
+    return db_title.id
 
 
 @api_router.get("/{parser_id}/titles/main", response_model=MainPage)

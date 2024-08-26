@@ -1,7 +1,7 @@
 import os
 import importlib.util
 from fastapi.logger import logger
-
+from typing import Literal
 from src.utils.parsers import Parser
 
 
@@ -26,3 +26,4 @@ def import_all_modules():
 
 parsers: list[Parser] = import_all_modules()
 parsers_dict = {parser.parser_id: parser for parser in parsers}
+ParserId = Literal[tuple([parser.parser_id for parser in parsers])]  # nopep8 # type: ignore

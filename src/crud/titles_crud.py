@@ -47,8 +47,9 @@ class TitlesCrud(BaseCRUD):
         related_title = RelatedTitle(title_id=title_id, link_id=link_id)
         return await self.create(related_title)
 
-    async def get_title_by_website_id(self, website_id: str) -> Title:
-        query = select(Title).where(Title.id_on_website == website_id)
+    async def get_title_by_website_id(self, website_id: str, parser_id: str) -> Title:
+        query = select(Title).where(Title.id_on_website ==
+                                    str(website_id), Title.parser_id == parser_id)
         return (await self.db.execute(query)).scalar()
 
     async def update_title(self, db_title: Title, title: ParsedTitle | ParsedTitleShort) -> Title:

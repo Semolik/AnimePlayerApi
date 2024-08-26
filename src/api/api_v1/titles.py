@@ -3,7 +3,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from src.crud.titles_crud import TitlesCrud
 from src.db.session import get_async_session, AsyncSession
 from src.schemas.parsers import TitleEpisodes, FavoriteTitle, Title
-from src.parsers import parsers, parsers_dict
+from src.parsers import parsers_dict
 from src.users_controller import optional_current_user, current_active_user
 from src.worker import get_episodes_duration
 api_router = APIRouter(prefix="/titles", tags=["titles"])

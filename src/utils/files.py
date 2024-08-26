@@ -33,11 +33,15 @@ def init_folders():
 
 
 def get_image_link(image_id: UUID) -> str:
-    return f'{settings.API_V1_STR}/images/{image_id}'
+    return f'{settings.API_DOMAIN}/{settings.API_V1_STR}/images/{image_id}'
 
 
-async def save_image(db: AsyncSession,  upload_file: UploadFile, resize_image_options=(250, 250),
-                     detail_error_message="поврежденное изображение") -> Image:
+async def save_image(
+    db: AsyncSession,
+    upload_file: UploadFile,
+    resize_image_options=(250, 250),
+    detail_error_message="поврежденное изображение"
+) -> Image:
 
     originalFileName = upload_file.filename
     originalFilePath = Path(originalFileName)
@@ -51,12 +55,12 @@ async def save_image(db: AsyncSession,  upload_file: UploadFile, resize_image_op
     shutil.copyfileobj(upload_file.file, buf)
     buf.seek(0)
 
-    # try:
-    image = pillow.open(buf)
-    image.thumbnail(resize_image_options)
-    image_model = await BaseCRUD(db).create(Image())
-    image_path = await get_image_path(image=image_model)
-    image.save(image_path)
-    return image_model
-    # except:
-    #     raise HTTPException(status_code=422, detail=detail_error_message)
+    try:
+        image = pillow.open(buf)
+        image.thumbnail(resize_image_options)
+        image_model = await BaseCRUD(db).create(Image())
+        image_path = await get_image_path(image=image_model)
+        image.save(image_path)
+        return image_model
+    except:
+        raise HTTPException(status_code=422, detail=detail_error_message)

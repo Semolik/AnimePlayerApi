@@ -40,7 +40,7 @@ class ParsedEpisode(BaseModel):
 
 class ParsedTitle(ParsedTitleShort):
     description: str | None = None
-    series_info: str
+    series_info: str | None = None
     year: str
     episodes_list: list[ParsedEpisode] = []
     kind: Literal[tuple(settings.shikimori_kinds)] | None = None  # nopep8 # type: ignore
