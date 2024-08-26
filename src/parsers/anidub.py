@@ -359,7 +359,7 @@ parser = AnidubParser(
 
 
 async def get_db_genre(db: AsyncSession, genre_name: str) -> Genre:
-    db_genre = await GenresCrud(db).get_genre_by_website_id(website_id=genre_name)
+    db_genre = await GenresCrud(db).get_genre_by_website_id(website_id=genre_name, parser_id=parser.parser_id)
     if not db_genre:
         db_genre = await GenresCrud(db).create_genre(genre=ParsedGenre(
             name=genre_name, id_on_website=genre_name

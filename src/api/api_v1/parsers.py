@@ -1,6 +1,7 @@
 
 from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from src.crud.genres_crud import GenresCrud
 from src.crud.titles_crud import TitlesCrud
 from src.db.session import get_async_session, AsyncSession
 from src.schemas.parsers import Genre, MainPage, ParserInfo,  TitlesPage
@@ -44,6 +45,14 @@ async def resolve_old_id(parser_id: ParserId, title_id: int, db: AsyncSession = 
             raise HTTPException(status_code=404, detail="Title not found.")
         db_title = await TitlesCrud(db).create_title(title_obj, parser_id)
     return db_title.id
+
+
+@api_router.get("/{parser_id}/resolve-old-genre", response_model=UUID)
+async def resolve_old_id(parser_id: ParserId, genre_name: str, db: AsyncSession = Depends(get_async_session)):
+    db_genre = await GenresCrud(db).get_genre_by_website_id(website_id=genre_name, parser_id=parser_id)
+    if not db_genre:
+        raise HTTPException(status_code=404, detail="Genre not found.")
+    return db_genre.id
 
 
 @api_router.get("/{parser_id}/titles/main", response_model=MainPage)

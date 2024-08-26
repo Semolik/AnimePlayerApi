@@ -322,14 +322,14 @@ class Parser(ABC):
                     break
             if not genre:
                 continue
-            db_genre = await GenresCrud(db).get_genre_by_website_id(website_id=genre.id_on_website)
+            db_genre = await GenresCrud(db).get_genre_by_website_id(website_id=genre.id_on_website, parser_id=self.parser_id)
             if not db_genre:
                 db_genre = await GenresCrud(db).create_genre(genre=genre, parser_id=self.parser_id)
             db_genres.append(db_genre)
         return db_genres
 
     async def _prepare_genres(self, genres: List[ParsedGenre], db: AsyncSession) -> List[Genre]:
-        existing_genres = await GenresCrud(db).get_genres_by_website_ids(website_ids=[genre.id_on_website for genre in genres])
+        existing_genres = await GenresCrud(db).get_genres_by_website_ids(website_ids=[genre.id_on_website for genre in genres], parser_id=self.parser_id)
         existing_ids_set = {genre.id_on_website for genre in existing_genres}
         db_genres = []
         for parsed_genre in genres:
