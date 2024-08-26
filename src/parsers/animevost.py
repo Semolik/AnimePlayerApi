@@ -144,11 +144,15 @@ async def get_title(title_id: str) -> ParsedTitle:
                         break
             async with session.post(f'{API_URL}/playlist', data={'id': int(title_id)}) as episodes_data:
                 episodes_json = await episodes_data.json()
-                episodes_list = [
-                    ParsedEpisode(
+
+                def prepare_parse_episode(episode):
+                    number = 0
+                    search_result = re.search(r'\d+', episode['name'])
+                    if search_result:
+                        number = int(search_result.group())
+                    return ParsedEpisode(
                         name=episode['name'],
-                        number=int(
-                            re.search(r'\d+', episode['name']).group() or 0),
+                        number=number,
                         preview=episode['preview'],
                         links=[
                             ParsedLink(
@@ -163,6 +167,8 @@ async def get_title(title_id: str) -> ParsedTitle:
                             ),
                         ]
                     )
+                episodes_list = [
+                    prepare_parse_episode(episode)
                     for episode in episodes_json
                 ]
             return ParsedTitle(
