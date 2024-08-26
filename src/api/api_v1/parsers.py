@@ -39,7 +39,7 @@ async def get_titles(parser_id: ParserId, background_tasks: BackgroundTasks, pag
 async def resolve_old_id(parser_id: ParserId, title_id: int, db: AsyncSession = Depends(get_async_session)):
     db_title = await TitlesCrud(db).get_title_by_website_id(website_id=title_id, parser_id=parser_id)
     if not db_title:
-        title_obj = await parsers_dict[parser_id].functions.get_title(f'{title_id}-')
+        title_obj = await parsers_dict[parser_id].functions.get_title(str(title_id))
         if not title_obj:
             raise HTTPException(status_code=404, detail="Title not found.")
         db_title = await TitlesCrud(db).create_title(title_obj, parser_id)
