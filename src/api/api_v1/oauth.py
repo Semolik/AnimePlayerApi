@@ -48,9 +48,7 @@ oauth_router.include_router(
 async def github_callback_redirection(request: Request, response: Response):
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{settings.API_DOMAIN}/api/v1/auth/github/callback", params=request.query_params) as response_callback:
-            response.set_cookie(key="fastapiusersauth",
-                                value=response_callback.cookies.get("fastapiusersauth"))
-            return RedirectResponse(url=settings.FRONTEND_DOMAIN)
+            return RedirectResponse(url=settings.FRONTEND_DOMAIN, headers={'set-cookie': response_callback.headers.get('set-cookie')})
 oauth_router.include_router(
     fastapi_users.get_oauth_associate_router(
         github_oauth_client, UserRead, settings.SECRET, redirect_url=settings.FRONTEND_DOMAIN),
