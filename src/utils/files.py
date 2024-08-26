@@ -33,7 +33,7 @@ def init_folders():
 
 
 def get_image_link(image_id: UUID) -> str:
-    return f'{settings.API_DOMAIN}/{settings.API_V1_STR}/images/{image_id}'
+    return f'{settings.API_DOMAIN}{settings.API_V1_STR}/images/{image_id}'
 
 
 async def save_image(
