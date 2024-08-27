@@ -1,12 +1,12 @@
 import asyncio
 from logging.config import fileConfig
 
+import asyncpg
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from src.db.session import *
 from alembic import context
-
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -69,9 +69,46 @@ async def run_async_migrations() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
+    # await connectable.dispose()
+    # # conn_str = f"postgres://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_SERVER}/postgres"
+    # # conn = await asyncpg.connect(conn_str)
+    # # db_exists = await conn.fetchval("SELECT 1 FROM pg_database WHERE datname=$1", settings.POSTGRES_DB)
+    # # if not db_exists:
+    # #     print("Database does not exist. Creating...")
+    # #     await conn.execute(f"CREATE DATABASE {settings.POSTGRES_DB}")
+    # # await conn.close()
+    # # connectable = async_engine_from_config(
+    # #     config.get_section(config.config_ini_section, {}),
+    # #     prefix="sqlalchemy.",
+    # #     poolclass=pool.NullPool,
+    # # )
+
+    # # async with connectable.connect() as connection:
+    # #     await connection.run_sync(do_run_migrations)
+    # async with connectable.connect() as connection:
+    #     #     try:
+    #     #         await connectio..fetchval(
+    #     #             "SELECT 1 FROM pg_database WHERE datname=$1", settings.POSTGRES_DB
+    #     #         )
+    #     #     except Exception as e:
+    #     #         print("Database does not exist", e)
+    #     #         await connection.close()
+
+    #     #         conn = await asyncpg.connect(conn_str)
+    #     #         await conn.execute(f"CREATE DATABASE {settings.POSTGRES_DB}")
+    #     #         await conn.close()
+    #     #         connectable = async_engine_from_config(
+    #     #             config.get_section(config.config_ini_section, {}),
+    #     #             prefix="sqlalchemy.",
+    #     #             poolclass=pool.NullPool,
+    #     #         )
+    #     #         connection = await connectable.connect()
+    #     try:
+    #         await connection.run_sync(do_run_migrations)
+    #     except Exception as e:
+    #         target_metadata.create_all(connectable)
 
     await connectable.dispose()
 

@@ -37,7 +37,8 @@ services:
       - PYTHONPATH=/usr/src
     command: alembic upgrade head
     depends_on:
-      - database
+      database:
+        condition: service_healthy
     volumes:
       - .:/usr/src
 

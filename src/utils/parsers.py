@@ -207,9 +207,9 @@ class Parser(ABC):
         await service.set_titles(titles_page=titles_page.model_dump(), page=page, parser_id=self.parser_id)
         await self.update_expire_status(service=service)
 
-    async def update_title_in_db(self, title_id: UUID, db: AsyncSession, title_data: ParsedTitle = None, raise_error: bool = False) -> Title:
+    async def update_title_in_db(self, title_id: UUID, db: AsyncSession, title_data: ParsedTitle = None, raise_error: bool = False) -> TitleModel:
         db_title = await TitlesCrud(db).get_title_by_id(title_id=title_id)
-        await TitlesCrud(db).update_title(db_title=db_title, title=title_data)
+        return await TitlesCrud(db).update_title(db_title=db_title, title=title_data)
 
     async def update_expire_status(self, service: CacheService = Depends(Provide[Container.service])):
         expired = await service.expire_status(parser_id=self.parser_id)

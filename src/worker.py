@@ -15,6 +15,7 @@ from src.core.config import settings
 from src.mail.conf import conf
 from src.db.session import get_async_session_context
 from src.utils.videos import VideoDuration
+from src.utils.shikimori import Shikimori
 
 celery = Celery(__name__)
 celery.conf.broker_url = os.environ.get("CELERY_BROKER_URL")
@@ -168,7 +169,11 @@ async def prepare_title(parser: Parser, title_id: UUID, id_on_website: str):
         service = await parser.get_service()
         async with get_async_session_context() as session:
             title_obj = await parser._update_title_cache(id_on_website=id_on_website, title_id=title_id, service=service)
-            await parser.update_title_in_db(title_id=title_id, title_data=title_obj, db=session)
+            db_title = await parser.update_title_in_db(title_id=title_id, title_data=title_obj, db=session)
+            if not db_title.shikimori_fetched:
+                shikimori_title = await Shikimori(service=service).get_title(title_obj)
+                await TitlesCrud(session).update_shikimori_info(db_title=db_title, shikimori_id=int(shikimori_title.data['id']) if shikimori_title else None)
+            await session.commit()
     except Exception as e:
         print(f"Error while preparing title {title_id}: {e}")
 
@@ -188,27 +193,17 @@ async def prepare_all_parser_titles(parser_id: str):
     async with get_async_session_context() as session:
         first_page = await parser.get_titles(page=1, db=session, service=service)
         total_pages = first_page.total_pages
-        wait = 0
         for page in range(1, total_pages+1):
             try:
-                flag = False
+                print(f"Preparing page {page} for {parser_id}")
+                await asyncio.sleep(5)
                 if page == 1:
-                    page_data = first_page
+                    continue
                 else:
-                    page_data = await parser.get_titles(page=page, db=session, service=service)
+                    await parser.get_titles(page=page, db=session, service=service)
             except Exception as e:
                 print(f"Error while getting page {page} for {parser_id}: {e}")
                 continue
-            for title in page_data.titles:
-                is_expired, cached_title = await parser._get_cached_title(title.id, service)
-                if is_expired or not cached_title:
-                    flag = True
-                    db_title = await TitlesCrud(session).get_title_by_id(title.id)
-                    prepare_title_wrapper.apply_async(
-                        (title.id, parser_id, db_title.id_on_website), countdown=wait)
-                    wait += 10
-            if flag:
-                print(f"Page {page} for {parser_id} prepared")
 
     print(f"Titles for {parser_id} prepared")
 
