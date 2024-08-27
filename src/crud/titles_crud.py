@@ -1,5 +1,5 @@
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 from src.crud.base import BaseCRUD
 from src.crud.genres_crud import GenresCrud
@@ -12,6 +12,15 @@ class TitlesCrud(BaseCRUD):
     async def get_titles_by_website_ids(self, website_ids: list[str]) -> list[Title]:
         query = select(Title).where(Title.id_on_website.in_(website_ids))
         return (await self.db.execute(query)).scalars().all()
+
+    async def search_titles(self, query: str,  page_size: int = 20) -> list[Title]:
+        query = select(Title).where(Title.name.ilike(f'%{query}%') | Title.en_name.ilike(f'%{query}%'))\
+            .group_by(Title.id, Title.shikimori_id).order_by(Title.created_at.desc()).slice(0, page_size)
+        return (await self.db.execute(query)).scalars().all()
+
+    async def get_titles_count(self) -> int:
+        query = select(func.count(Title.id))
+        return (await self.db.execute(query)).scalar()
 
     async def get_related_titles_by_title_id(self, title_id: UUID) -> list[RelatedTitle]:
         related_link = await self.get_related_link_by_title_id(title_id)
@@ -26,6 +35,7 @@ class TitlesCrud(BaseCRUD):
             id_on_website=title.id_on_website,
             parser_id=parser_id,
             name=title.name,
+            en_name=title.en_name if hasattr(title, 'en_name') else None,
             image_url=title.image_url if hasattr(title, 'image_url') else None,
         )
         return await self.create(title)
@@ -55,6 +65,8 @@ class TitlesCrud(BaseCRUD):
     async def update_title(self, db_title: Title, title: ParsedTitle | ParsedTitleShort) -> Title:
         db_title.name = title.name
         db_title.image_url = title.image_url
+        if title.en_name:
+            db_title.en_name = title.en_name
         return await self.update(db_title)
 
     async def update_shikimori_info(self, db_title: Title, shikimori_id: int) -> Title:

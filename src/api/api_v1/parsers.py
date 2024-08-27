@@ -6,6 +6,8 @@ from src.crud.titles_crud import TitlesCrud
 from src.db.session import get_async_session, AsyncSession
 from src.schemas.parsers import Genre, MainPage, ParserInfo,  TitlesPage
 from src.parsers import parsers, parsers_dict, ParserId
+from src.worker import prepare_all_parser_titles_wrapper
+from src.users_controller import current_superuser
 
 
 api_router = APIRouter(prefix="/parsers", tags=["parsers"])
@@ -68,3 +70,9 @@ async def get_main_titles(parser_id: ParserId, background_tasks: BackgroundTasks
 async def get_genres(parser_id: ParserId, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_async_session)):  # type: ignore
     parser = parsers_dict[parser_id]
     return await parser.get_genres(background_tasks=background_tasks, db=db)
+
+
+@api_router.post("/{parser_id}/prepare-all-titles")
+async def prepare_all_titles(parser_id: ParserId, db: AsyncSession = Depends(get_async_session), current_user=Depends(current_superuser)):
+    prepare_all_parser_titles_wrapper.apply_async((parser_id, ))
+    return {"message": "Preparing titles started."}

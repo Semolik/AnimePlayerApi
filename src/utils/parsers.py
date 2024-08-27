@@ -65,10 +65,10 @@ class Parser(ABC):
         title_obj = await self.get_title_data(db_title=db_title, service=service)
         return await self.prepare_episodes(title=title_obj, title_id=db_title.id, db=db, service=service, current_user=current_user)
 
-    async def get_titles(self, page: int, background_tasks: BackgroundTasks, db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> TitlesPage:
+    async def get_titles(self, page: int, db: AsyncSession, background_tasks: BackgroundTasks | None = None, service: CacheService = Depends(Provide[Container.service])) -> TitlesPage:
         is_expired = await service.expire_status(parser_id=self.parser_id)
         cached_titles_page = await service.get_titles(parser_id=self.parser_id, page=page)
-        if is_expired and cached_titles_page:
+        if is_expired and cached_titles_page and background_tasks:
             background_tasks.add_task(self.update_titles, page, service)
         titles_page = cached_titles_page if cached_titles_page else await self.update_titles(page=page, service=service, raise_error=True)
         return await self._prepare_titles(titles_page=titles_page, db=db, background_tasks=background_tasks)
@@ -302,7 +302,7 @@ class Parser(ABC):
             else:
                 title = next(
                     title for title in existing_titles if title.id_on_website == parsed_title.id_on_website)
-                if await self.title_data_changed(parsed_title, title):
+                if await self.title_data_changed(parsed_title, title) and background_tasks:
                     background_tasks.add_task(
                         self.update_title_in_db, title_id=title.id, db=db, title_data=parsed_title)
             title_obj = TitleShort.model_validate(title)

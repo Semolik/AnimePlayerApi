@@ -1,9 +1,13 @@
 import asyncio
 import os
+from uuid import UUID
 from celery import Celery
 from fastapi_mail import FastMail, MessageSchema, MessageType
-from src.schemas.parsers import Episode
+from src.models.parsers import Title
+from src.redis.services import CacheService
+from src.schemas.parsers import Episode, TitlesPage
 from src.crud.episodes_crud import EpisodesCrud
+from src.crud.titles_crud import TitlesCrud
 from src.models.users import User
 from src.parsers import parsers_dict
 from src.utils.parsers import Parser
@@ -156,6 +160,63 @@ def get_episodes_duration(title_episodes: list[dict]):
             get_episode_duration_wrapper.apply_async(
                 (episode,), countdown=wait)
             wait += 5
+
+
+async def prepare_title(parser: Parser, title_id: UUID, id_on_website: str):
+    try:
+        print(f"Preparing title {title_id}")
+        service = await parser.get_service()
+        async with get_async_session_context() as session:
+            title_obj = await parser._update_title_cache(id_on_website=id_on_website, title_id=title_id, service=service)
+            await parser.update_title_in_db(title_id=title_id, title_data=title_obj, db=session)
+    except Exception as e:
+        print(f"Error while preparing title {title_id}: {e}")
+
+
+@celery.task(name="prepare_title_task")
+def prepare_title_wrapper(title_id: UUID, parser_id: str, id_on_website: str):
+    loop = asyncio.get_event_loop()
+    parser = parsers_dict.get(parser_id)
+    loop.run_until_complete(prepare_title(
+        parser=parser, title_id=title_id, id_on_website=id_on_website))
+
+
+async def prepare_all_parser_titles(parser_id: str):
+    print(f"Preparing all titles for {parser_id}")
+    parser: Parser = parsers_dict.get(parser_id)
+    service = await parser.get_service()
+    async with get_async_session_context() as session:
+        first_page = await parser.get_titles(page=1, db=session, service=service)
+        total_pages = first_page.total_pages
+        wait = 0
+        for page in range(1, total_pages+1):
+            try:
+                flag = False
+                if page == 1:
+                    page_data = first_page
+                else:
+                    page_data = await parser.get_titles(page=page, db=session, service=service)
+            except Exception as e:
+                print(f"Error while getting page {page} for {parser_id}: {e}")
+                continue
+            for title in page_data.titles:
+                is_expired, cached_title = await parser._get_cached_title(title.id, service)
+                if is_expired or not cached_title:
+                    flag = True
+                    db_title = await TitlesCrud(session).get_title_by_id(title.id)
+                    prepare_title_wrapper.apply_async(
+                        (title.id, parser_id, db_title.id_on_website), countdown=wait)
+                    wait += 10
+            if flag:
+                print(f"Page {page} for {parser_id} prepared")
+
+    print(f"Titles for {parser_id} prepared")
+
+
+@celery.task(name="prepare_all_parser_titles_task")
+def prepare_all_parser_titles_wrapper(parser_id: str):
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(prepare_all_parser_titles(parser_id))
 
 
 @celery.on_after_configure.connect

@@ -11,6 +11,7 @@ class Title(Base):
     id_on_website = Column(String, nullable=False, unique=True)
     parser_id = Column(String, nullable=False)
     name = Column(String, nullable=False)
+    en_name = Column(String, nullable=True)
     shikimori_fetched = Column(Boolean, default=False)
     shikimori_id = Column(Integer, nullable=True)
     updated_at = Column(

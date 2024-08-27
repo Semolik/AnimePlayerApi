@@ -114,6 +114,7 @@ async def get_title_related(story: BeautifulSoup) -> List[LinkParsedTitle]:
         LinkParsedTitle(
             id_on_website=get_id_from_url(a['href']),
             name=get_original_title(a.text),
+            en_name=get_en_title(a.text),
         )
         for a in story.select('div.shortstoryContent > div.text_spoiler > ol > li > a')
     ]
