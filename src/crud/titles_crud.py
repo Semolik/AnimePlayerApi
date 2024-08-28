@@ -1,10 +1,8 @@
 from uuid import UUID
-from sqlalchemy import func, select
-from sqlalchemy.orm import selectinload
+from sqlalchemy import String, case, cast, func, select
 from src.crud.base import BaseCRUD
-from src.crud.genres_crud import GenresCrud
-from src.models.parsers import Episode, EpisodeProgress, FavoriteTitle, Title, RelatedLink, RelatedTitle
-from src.schemas.parsers import LinkParsedTitle, ParsedTitleShort, ParsedTitle
+from src.models.parsers import FavoriteTitle, Title, RelatedLink, RelatedTitle
+from src.schemas.parsers import LinkParsedTitle, ParsedTitleShort, ParsedTitle, FavoriteTitle as FavoriteTitleShema, SearchTitle, TitleShortLink
 
 
 class TitlesCrud(BaseCRUD):
@@ -14,9 +12,37 @@ class TitlesCrud(BaseCRUD):
         return (await self.db.execute(query)).scalars().all()
 
     async def search_titles(self, query: str,  page_size: int = 20) -> list[Title]:
-        query = select(Title).where(Title.name.ilike(f'%{query}%') | Title.en_name.ilike(f'%{query}%'))\
-            .group_by(Title.id, Title.shikimori_id).order_by(Title.created_at.desc()).slice(0, page_size)
-        return (await self.db.execute(query)).scalars().all()
+        query = select(
+            case(
+                (Title.shikimori_id.isnot(None), cast(Title.shikimori_id, String)),
+                else_=cast(Title.id, String)
+            ).label('group_id'),
+            func.array_agg(
+                func.row(*[getattr(Title, col).label(col)
+                         for col in FavoriteTitleShema.model_fields])
+            ).label('titles')
+        ).where(
+            Title.name.ilike(f"%{query}%") | Title.en_name.ilike(f"%{query}%")
+        ).group_by(
+            'group_id'
+        ).slice(0, page_size)
+        result = await self.db.execute(query)
+        results = result.all()
+        result_list = []
+
+        def get_title_dict(title):
+            return {
+                col: title[index]
+                for index, col in enumerate(FavoriteTitleShema.model_fields.keys())
+            }
+        for title in [row.titles for row in results]:
+            result_title = SearchTitle.model_validate(
+                get_title_dict(title[0]), from_attributes=True)
+            result_title.on_other_parsers = [TitleShortLink.model_validate(
+                get_title_dict(title), from_attributes=True) for title in title]
+            result_list.append(result_title)
+
+        return result_list
 
     async def get_titles_count(self) -> int:
         query = select(func.count(Title.id))

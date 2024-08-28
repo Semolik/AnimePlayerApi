@@ -5,6 +5,12 @@ from pydantic import BaseModel, validator
 from src.core.config import settings
 
 
+class BaseTitleInfo(BaseModel):
+    name: str
+    en_name: str | None = None
+    image_url: str
+
+
 class LinkParsedTitle(BaseModel):
     id_on_website: str
     name: str
@@ -53,10 +59,14 @@ class ShikimoriTitle(BaseModel):
     data: dict
 
 
-class TitleLink(BaseModel):
+class TitleShortLink(BaseModel):
     id: uuid.UUID
-    name: str
     parser_id: str
+
+
+class TitleLink(TitleShortLink):
+    name: str
+    en_name: str | None = None
 
     class Config:
         from_attributes = True
@@ -69,10 +79,13 @@ class FavoriteTitle(TitleLink):
 class TitleShort(FavoriteTitle):
 
     additional_info: str = None
-    en_name: str | None = None
 
     class Config:
         from_attributes = True
+
+
+class SearchTitle(BaseTitleInfo):
+    on_other_parsers: list[TitleShortLink] = []
 
 
 class TitlesPage(BaseModel):
