@@ -22,7 +22,8 @@ class TitlesCrud(BaseCRUD):
                          for col in FavoriteTitleShema.model_fields])
             ).label('titles')
         ).where(
-            Title.name.ilike(f"%{query}%") | Title.en_name.ilike(f"%{query}%")
+            Title.name.ilike(f"%{query}%") | Title.en_name.ilike(
+                f"%{query}%"), Title.image_url.isnot(None)
         ).group_by(
             'group_id'
         ).slice(0, page_size)
