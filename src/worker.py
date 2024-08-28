@@ -194,16 +194,26 @@ async def prepare_all_parser_titles(parser_id: str):
         first_page = await parser.get_titles(page=1, db=session, service=service)
         total_pages = first_page.total_pages
         for page in range(1, total_pages+1):
+            print(f"Preparing page {page} for {parser_id}")
             try:
-                print(f"Preparing page {page} for {parser_id}")
-                await asyncio.sleep(5)
                 if page == 1:
-                    continue
+                    page_data = first_page
                 else:
-                    await parser.get_titles(page=page, db=session, service=service)
+                    page_data = await parser.get_titles(page=page, db=session, service=service)
+                for title in page_data.titles:
+                    db_title = await TitlesCrud(session).get_title_by_id(title.id)
+                    if not db_title.shikimori_fetched:
+                        shikimori_title = await Shikimori(service=service).get_title(title)
+                        if shikimori_title:
+                            print(
+                                f"Title {title.id} linked to shikimori {shikimori_title.data['id']}")
+                        else:
+                            print(f"Title {title.id} not found on shikimori")
+                        await TitlesCrud(session).update_shikimori_info(db_title=db_title, shikimori_id=int(shikimori_title.data['id']) if shikimori_title else None)
+                        await asyncio.sleep(5)
+                await asyncio.sleep(5)
             except Exception as e:
                 print(f"Error while getting page {page} for {parser_id}: {e}")
-                continue
 
     print(f"Titles for {parser_id} prepared")
 
