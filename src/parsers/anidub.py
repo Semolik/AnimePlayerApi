@@ -128,7 +128,10 @@ def get_titles_from_page(soup: BeautifulSoup) -> list[ParsedTitleShort]:
     parsed_titles = []
     titles = data.select('.th-item')
     for title in titles:
-        parsed_titles.append(get_title_data(title))
+        try:
+            parsed_titles.append(get_title_data(title))
+        except Exception as e:
+            print(f"Error while parsing title on anidub: {e}")
     return parsed_titles
 
 

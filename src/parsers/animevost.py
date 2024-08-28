@@ -226,14 +226,18 @@ def get_titles_from_page(soup: BeautifulSoup) -> list[ParsedTitleShort]:
                 )
                 for a in text_spoiler.select('a')
             ]
-        result.append(ParsedTitleShort(
-            related_titles=related_titles,
-            id_on_website=get_id_from_url(a['href']),
-            name=get_original_title(name),
-            en_name=get_en_title(name),
-            additional_info=series_from_title(name),
-            image_url=WEBSITE_URL+title.select_one('img')['src']
-        ))
+        try:
+            result.append(ParsedTitleShort(
+                related_titles=related_titles,
+                id_on_website=get_id_from_url(a['href']),
+                name=get_original_title(name),
+                en_name=get_en_title(name),
+                additional_info=series_from_title(name),
+                image_url=WEBSITE_URL+title.select_one('img')['src']
+            ))
+        except Exception as e:
+            print(f"Error while parsing title {name} on animevost: {e}")
+
     return result
 
 
