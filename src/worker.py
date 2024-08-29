@@ -104,10 +104,25 @@ def send_verify_email_wrapper(user: User, token: str):
     loop.run_until_complete(send_verify_email(user, token))
 
 
+async def fetch_shikimori(parsed_title, db_title, service, db):
+    shikimori_title = await Shikimori(service=service).get_title(parsed_title)
+    if shikimori_title:
+        print(
+            f"Title {parsed_title.id} linked to shikimori {shikimori_title.data['id']}")
+    else:
+        print(f"Title {parsed_title.id} not found on shikimori")
+    await TitlesCrud(db).update_shikimori_info(db_title=db_title, shikimori_id=int(shikimori_title.data['id']) if shikimori_title else None)
+
+
 async def update_parser(parser: Parser):
     service = await parser.get_service()
     for i in range(1, parser.main_pages_count+1):
-        await parser.update_titles(page=i, service=service, raise_error=False)
+        titles = await parser.update_titles(page=i, service=service, raise_error=False)
+        for title in titles:
+            db_title = await TitlesCrud().get_title_by_id(title.id)
+            if not db_title.shikimori_fetched:
+                await fetch_shikimori(title=title, db_title=db_title, service=service, db=None)
+                await asyncio.sleep(5)
 
 
 async def check_parser(parser_id: str):
@@ -203,13 +218,7 @@ async def prepare_all_parser_titles(parser_id: str):
                 for title in page_data.titles:
                     db_title = await TitlesCrud(session).get_title_by_id(title.id)
                     if not db_title.shikimori_fetched:
-                        shikimori_title = await Shikimori(service=service).get_title(title)
-                        if shikimori_title:
-                            print(
-                                f"Title {title.id} linked to shikimori {shikimori_title.data['id']}")
-                        else:
-                            print(f"Title {title.id} not found on shikimori")
-                        await TitlesCrud(session).update_shikimori_info(db_title=db_title, shikimori_id=int(shikimori_title.data['id']) if shikimori_title else None)
+                        await fetch_shikimori(title=title, db_title=db_title, service=service, db=session)
                         await asyncio.sleep(5)
                 await asyncio.sleep(5)
             except Exception as e:
