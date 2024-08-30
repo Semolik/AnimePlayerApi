@@ -7,7 +7,6 @@ from fastapi import HTTPException
 from bs4 import BeautifulSoup
 from src.redis.services import CacheService
 from src.db.session import AsyncSession
-from fastapi import BackgroundTasks
 from typing import List
 
 

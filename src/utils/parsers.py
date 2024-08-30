@@ -305,10 +305,15 @@ class Parser(ABC):
                 if await self.title_data_changed(parsed_title, title) and background_tasks:
                     background_tasks.add_task(
                         self.update_title_in_db, title_id=title.id, db=db, title_data=parsed_title)
-            title_obj = TitleShort.model_validate(title)
-            title_obj.additional_info = parsed_title.additional_info
-            title_obj.en_name = parsed_title.en_name
-            db_titles.append(title_obj)
+            if not title.image_url:
+                continue
+            try:
+                title_obj = TitleShort.model_validate(title)
+                title_obj.additional_info = parsed_title.additional_info
+                title_obj.en_name = parsed_title.en_name
+                db_titles.append(title_obj)
+            except Exception as e:
+                logger.error(f'Failed to validate title: {e}')
         return TitlesPage(titles=db_titles, total_pages=titles_page.total_pages)
 
     async def _prepare_genres_names(self, genres_names: List[str], db: AsyncSession, background_tasks: BackgroundTasks, service: CacheService = Depends(Provide[Container.service])) -> List[Genre]:
