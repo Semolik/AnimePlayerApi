@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from typing import Callable, List
 from uuid import UUID
@@ -16,6 +17,7 @@ from src.models.users import User as UserModel
 from src.utils.shikimori import Shikimori
 from src.core.config import settings
 from abc import ABC, abstractmethod
+from src.db.session import get_async_session_context
 
 
 @dataclass
@@ -223,7 +225,6 @@ class Parser(ABC):
                 related_titles = await self._prepare_related_titles(title_id=title_id, related_titles=title.related_titles, db=db)
                 title.related_titles = related_titles
             await service.set_title(title_id=title_id, title=title.model_dump(), parser_id=self.parser_id)
-            await self.update_expire_status(service=service)
             return title
         except HTTPException as e:
             if raise_error:
@@ -274,22 +275,34 @@ class Parser(ABC):
                 return True
         return False
 
-    async def _prepare_related_titles(self, title_id: UUID, related_titles: List[LinkParsedTitle], db: AsyncSession) -> List[TitleLink]:
+    async def _prepare_related_titles(self, title_id: UUID, related_titles: List[LinkParsedTitle], db: AsyncSession, service: CacheService = Depends(Provide[Container.service])) -> List[TitleShort]:
         related_link = await TitlesCrud(db).get_related_link_by_title_id(title_id=title_id)
         if not related_link:
             related_link = await TitlesCrud(db).create_related_link()
         related_titles_objs = []
+        loop = asyncio.get_event_loop()
+
+        async def create_title(title_link: LinkParsedTitle):
+            try:
+                parsed_title = await self.functions.get_title(title_link.id_on_website)
+                db_title = await TitlesCrud(db).create_title(title=parsed_title, parser_id=self.parser_id)
+                await service.set_title(title_id=db_title.id, title=parsed_title.model_dump(), parser_id=self.parser_id)
+                await TitlesCrud(db).create_related_title(title_id=db_title.id, link_id=related_link.id)
+            except Exception as e:
+                print(f"Error while fetching and creating related title: {e}")
         for related_title in related_titles:
             existing_title = await TitlesCrud(db).get_title_by_website_id(website_id=related_title.id_on_website, parser_id=self.parser_id)
             if not existing_title:
-                existing_title = await TitlesCrud(db).create_title(related_title, self.parser_id)
+                loop.create_task(
+                    create_title(related_title))
+                continue
             if existing_title.id == title_id:
                 continue
             related = await TitlesCrud(db).get_related_title(title_id=existing_title.id, link_id=related_link.id)
             if not related:
                 related = await TitlesCrud(db).create_related_title(title_id=existing_title.id, link_id=related_link.id)
             related_titles_objs.append(
-                TitleLink.model_validate(existing_title))
+                TitleShort.model_validate(existing_title))
         return related_titles_objs
 
     async def _prepare_titles(self, titles_page: ParsedTitlesPage, db: AsyncSession, background_tasks: BackgroundTasks) -> TitlesPage:

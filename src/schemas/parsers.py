@@ -176,7 +176,7 @@ class Title(TitleShort):
     current_episode: Episode | None = None
     genres: list[Genre] = []
     episodes: list[Episode] = []
-    related: list[TitleLink] = []
+    related: list[TitleShort] = []
     recommended: list[TitleShort] = []
     shikimori: ShikimoriTitle | None = None
     shikimori_failed: bool = False

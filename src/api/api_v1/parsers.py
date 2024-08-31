@@ -73,6 +73,6 @@ async def get_genres(parser_id: ParserId, background_tasks: BackgroundTasks, db:
 
 
 @api_router.post("/{parser_id}/prepare-all-titles")
-async def prepare_all_titles(parser_id: ParserId, db: AsyncSession = Depends(get_async_session), current_user=Depends(current_superuser)):
+async def prepare_all_titles(parser_id: ParserId, current_user=Depends(current_superuser)):
     prepare_all_parser_titles_wrapper.apply_async((parser_id, ))
     return {"message": "Preparing titles started."}

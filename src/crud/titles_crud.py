@@ -122,7 +122,7 @@ class TitlesCrud(BaseCRUD):
     async def title_is_favorite(self, title_id: UUID, user_id: UUID) -> bool:
         return (await self.get_favorite_title(title_id, user_id)) is not None
 
-    async def get_favorite_titles_by_user_id(self, user_id: UUID, page: int, page_size: int = 20) -> list[Title]:
+    async def get_favorite_titles_by_user_id(self, user_id: UUID, page: int, page_size: int = 30) -> list[Title]:
         return await self.paginate(Title, page=page, per_page=page_size, query_func=lambda q: q.join(FavoriteTitle).where(FavoriteTitle.user_id == user_id).order_by(Title.created_at.desc()))
 
     async def create_favorite_title(self, title_id: UUID, user_id: UUID):

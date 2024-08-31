@@ -8,7 +8,7 @@ class Title(Base):
     __tablename__ = "titles"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    id_on_website = Column(String, nullable=False, unique=True)
+    id_on_website = Column(String, nullable=False)
     parser_id = Column(String, nullable=False)
     name = Column(String, nullable=False)
     en_name = Column(String, nullable=True)
