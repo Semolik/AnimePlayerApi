@@ -39,7 +39,7 @@ async def get_titles(parser_id: ParserId, background_tasks: BackgroundTasks, pag
 
 
 @api_router.get("/{parser_id}/resolve-old-id/{title_id}", response_model=UUID)
-async def resolve_old_id(parser_id: ParserId, title_id: int, db: AsyncSession = Depends(get_async_session)):
+async def resolve_old_id(parser_id: ParserId, title_id: int, db: AsyncSession = Depends(get_async_session)):  # type: ignore
     db_title = await TitlesCrud(db).get_title_by_website_id(website_id=title_id, parser_id=parser_id)
     if not db_title:
         title_obj = await parsers_dict[parser_id].functions.get_title(str(title_id))
@@ -50,7 +50,7 @@ async def resolve_old_id(parser_id: ParserId, title_id: int, db: AsyncSession = 
 
 
 @api_router.get("/{parser_id}/resolve-old-genre", response_model=UUID)
-async def resolve_old_id(parser_id: ParserId, genre_name: str, db: AsyncSession = Depends(get_async_session)):
+async def resolve_old_id(parser_id: ParserId, genre_name: str, db: AsyncSession = Depends(get_async_session)):  # type: ignore
     db_genre = await GenresCrud(db).get_genre_by_website_id(website_id=genre_name, parser_id=parser_id)
     if not db_genre:
         raise HTTPException(status_code=404, detail="Genre not found.")
@@ -73,6 +73,6 @@ async def get_genres(parser_id: ParserId, background_tasks: BackgroundTasks, db:
 
 
 @api_router.post("/{parser_id}/prepare-all-titles")
-async def prepare_all_titles(parser_id: ParserId, current_user=Depends(current_superuser)):
+async def prepare_all_titles(parser_id: ParserId, current_user=Depends(current_superuser)):  # type: ignore
     prepare_all_parser_titles_wrapper.apply_async((parser_id, ))
     return {"message": "Preparing titles started."}

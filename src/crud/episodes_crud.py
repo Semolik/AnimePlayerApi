@@ -17,6 +17,11 @@ class EpisodesCrud(BaseCRUD):
             Episode.title_id == title_id, EpisodeProgress.user_id == user_id).order_by(Episode.number)
         return (await self.db.execute(query)).all()
 
+    async def get_next_episode(self, title_id: UUID, number: int) -> Episode:
+        query = select(Episode).where(Episode.title_id ==
+                                      title_id, Episode.number == number + 1)
+        return (await self.db.execute(query)).scalar()
+
     async def create_episode(self, title_id: UUID, number: int, name: str):
         episode = Episode(title_id=title_id, number=number, name=name)
         return await self.create(episode)
@@ -71,13 +76,18 @@ class EpisodesCrud(BaseCRUD):
             return await self.delete(current_episode)
 
     async def get_by_id(self, episode_id: int) -> Episode:
-        query = select(Episode).where(Episode.id == episode_id)
+        query = select(Episode).where(
+            Episode.id == episode_id).options(selectinload(Episode.title))
         return (await self.db.execute(query)).scalar()
 
-    async def set_current_episode(self, episode_id: UUID, user_id: UUID):
+    async def create_current_episode(self, episode_id: UUID, user_id: UUID):
         current_episode = CurrentEpisode(
             episode_id=episode_id, user_id=user_id)
         return await self.create(current_episode)
+
+    async def update_current_episode(self, current_episode: CurrentEpisode, episode_id: UUID):
+        current_episode.episode_id = episode_id
+        return await self.update(current_episode)
 
     async def get_episode_progress(self, episode_id: UUID, user_id: UUID) -> EpisodeProgress:
         query = select(EpisodeProgress).where(
