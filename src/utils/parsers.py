@@ -12,7 +12,7 @@ from src.crud.titles_crud import TitlesCrud
 from src.schemas.parsers import Genre, LinkParsedTitle, ParsedGenre, ParsedEpisode, ParsedTitle, ParsedTitleShort, ParsedTitlesPage, Episode, Title, TitleLink, TitleShort, ShikimoriTitle, TitlesPage
 from src.redis.services import CacheService
 from src.redis.containers import Container
-from src.models.parsers import Title as TitleModel, Genre as GenreModel
+from src.models.parsers import EpisodeSource, Title as TitleModel, Genre as GenreModel
 from src.models.users import User as UserModel
 from src.utils.shikimori import Shikimori
 from src.core.config import settings
@@ -138,6 +138,24 @@ class Parser(ABC):
     async def prepare_episode(self, db_episode: Episode, parsed_episode: ParsedEpisode, progress: int, seconds: int, db: AsyncSession, service: CacheService) -> Episode:
         pass
 
+    async def prepare_episode_sources(self, db_episode: Episode, parsed_episode: ParsedEpisode, db: AsyncSession) -> List[EpisodeSource]:
+        sources = []
+        for source in parsed_episode.links:
+            db_source = await EpisodesCrud(db).get_source(episode_id=db_episode.id, name=source.name)
+            if not db_source:
+                db_source = await EpisodesCrud(db).create_source(
+                    episode_id=db_episode.id,
+                    name=source.name,
+                    link=source.link,
+                    quality=source.quality,
+                    is_m3u8=parsed_episode.is_m3u8
+                )
+            else:
+                if db_source.link != source.link:
+                    await EpisodesCrud(db).update_source(db_source=db_source, link=source.link)
+            sources.append(db_source)
+        return sources
+
     async def prepare_episodes(self, title: ParsedTitle, title_id: UUID, db: AsyncSession, service: CacheService, current_user: UserModel) -> List[Episode]:
         result = []
         user_id = current_user.id if current_user else None
@@ -149,10 +167,13 @@ class Parser(ABC):
             try:
                 episode_index = episodes_names.index(series_item.name)
                 db_episode = episodes[episode_index][0]
+                if db_episode.image_url != series_item.preview:
+                    await EpisodesCrud(db).update_episode(episode=db_episode, image_url=series_item.preview, name=series_item.name)
                 progress = episodes[episode_index][1] or 0
                 seconds = episodes[episode_index][2] or 0
             except ValueError:
-                db_episode = await EpisodesCrud(db).create_episode(name=series_item.name, title_id=title_id, number=series_item.number)
+                db_episode = await EpisodesCrud(db).create_episode(name=series_item.name, title_id=title_id, number=series_item.number, image_url=series_item.preview)
+            await self.prepare_episode_sources(db_episode=db_episode, parsed_episode=series_item, db=db)
             result.append(await self.prepare_episode(db_episode=db_episode, parsed_episode=series_item, progress=progress, db=db, service=service, seconds=seconds))
         return result
 
@@ -187,8 +208,11 @@ class Parser(ABC):
                 title_id=db_title.id, user_id=current_user.id)
             current_episode = await EpisodesCrud(db).get_current_title_episode(
                 title_id=db_title.id, user_id=current_user.id)
-            title_db_obj.current_episode = next(
-                (episode for episode in title_db_obj.episodes if episode.id == current_episode.episode_id), None) if current_episode else None
+            if current_episode:
+                title_db_obj.current_episode = next(
+                    (episode for episode in title_db_obj.episodes if episode.id == current_episode.episode_id), None)
+            else:
+                title_db_obj.current_episode = await EpisodesCrud(db).get_last_watched_episode(title_id=db_title.id, user_id=current_user.id)
         return title_db_obj
 
     async def update_titles(self, page: int, service: CacheService, raise_error: bool = False) -> List[ParsedTitleShort]:

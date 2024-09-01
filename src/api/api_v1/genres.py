@@ -7,7 +7,7 @@ from src.parsers import parsers_dict
 api_router = APIRouter(prefix="/genres", tags=["genres"])
 
 
-@api_router.get("/genres/{genre_id}", response_model=Genre)
+@api_router.get("/{genre_id}", response_model=Genre)
 async def get_genre(genre_id: UUID, db: AsyncSession = Depends(get_async_session)):
     existing_genre = await GenresCrud(db).get_genre_by_id(genre_id=genre_id)
     if not existing_genre:
@@ -15,7 +15,7 @@ async def get_genre(genre_id: UUID, db: AsyncSession = Depends(get_async_session
     return existing_genre
 
 
-@api_router.get("/genres/{genre_id}/titles", response_model=TitlesPage)
+@api_router.get("/{genre_id}/titles", response_model=TitlesPage)
 async def get_genre_titles(background_tasks: BackgroundTasks, genre_id: UUID, page: int = Query(1, ge=1), db: AsyncSession = Depends(get_async_session)):
     existing_genre = await GenresCrud(db).get_genre_by_id(genre_id=genre_id)
     if not existing_genre:
@@ -29,6 +29,6 @@ async def get_genre_titles(background_tasks: BackgroundTasks, genre_id: UUID, pa
     )
 
 
-@api_router.get("/genres", response_model=list[UniqueGenre])
+@api_router.get("", response_model=list[UniqueGenre])
 async def get_genres(db: AsyncSession = Depends(get_async_session)):
     return await GenresCrud(db).get_unique_genres()

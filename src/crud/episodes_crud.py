@@ -1,8 +1,9 @@
 from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
+from src.schemas.parsers import HistoryDay, TitleEpisode
 from src.crud.base import BaseCRUD
-from src.models.parsers import Episode, EpisodeProgress, CurrentEpisode, Title
+from src.models.parsers import Episode, EpisodeProgress, CurrentEpisode, EpisodeSource, Title
 
 
 class EpisodesCrud(BaseCRUD):
@@ -11,6 +12,20 @@ class EpisodesCrud(BaseCRUD):
         query = select(Episode, EpisodeProgress.progress).join(EpisodeProgress, isouter=True).where(
             Episode.title_id == title_id, Episode.number == number, EpisodeProgress.user_id == user_id)
         return (await self.db.execute(query)).scalar()
+
+    async def get_source(self, episode_id: UUID, name: str) -> EpisodeSource:
+        query = select(EpisodeSource).where(
+            EpisodeSource.episode_id == episode_id, EpisodeSource.name == name)
+        return (await self.db.execute(query)).scalar()
+
+    async def create_source(self, episode_id: UUID, link: str, name: str, quality: str | None, is_m3u8: bool) -> EpisodeSource:
+        source = EpisodeSource(
+            episode_id=episode_id, link=link, name=name, quality=quality, is_m3u8=is_m3u8)
+        return await self.create(source)
+
+    async def update_source(self, source: EpisodeSource, link: str) -> EpisodeSource:
+        source.link = link
+        return await self.update(source)
 
     async def get_episodes_by_title_id(self, title_id: UUID, user_id: UUID) -> list[tuple[Episode, int | None]]:
         query = select(Episode, EpisodeProgress.progress, EpisodeProgress.seconds).join(EpisodeProgress, isouter=True).where(
@@ -22,9 +37,20 @@ class EpisodesCrud(BaseCRUD):
                                       title_id, Episode.number == number + 1)
         return (await self.db.execute(query)).scalar()
 
-    async def create_episode(self, title_id: UUID, number: int, name: str):
-        episode = Episode(title_id=title_id, number=number, name=name)
+    async def get_last_watched_episode(self, title_id: UUID, user_id: UUID) -> Episode:
+        query = select(Episode).join(EpisodeProgress, Episode.id == EpisodeProgress.episode_id).where(
+            Episode.title_id == title_id, EpisodeProgress.user_id == user_id).order_by(EpisodeProgress.updated_at.desc())
+        return (await self.db.execute(query)).scalar()
+
+    async def create_episode(self, title_id: UUID, number: int, name: str, image_url: str | None = None) -> Episode:
+        episode = Episode(title_id=title_id, number=number,
+                          name=name, image_url=image_url)
         return await self.create(episode)
+
+    async def update_episode(self, episode: Episode, name: str, image_url: str | None = None) -> Episode:
+        episode.name = name
+        episode.image_url = image_url
+        return await self.update(episode)
 
     async def get_current_episodes(self, user_id: UUID, page: int = 1, per_page: int = 10) -> list[tuple[Episode, int | None, int | None, str]]:
         end = page * per_page
@@ -51,7 +77,7 @@ class EpisodesCrud(BaseCRUD):
             .join(EpisodeProgress, EpisodeProgress.episode_id == Episode.id)
             .join(Title, Title.id == Episode.title_id)
             .order_by(EpisodeProgress.updated_at.desc())
-            .options(selectinload(Episode.title))
+            .options(selectinload(Episode.title), selectinload(Episode.links))
         )
 
         query = query.slice(start, end)
@@ -103,3 +129,32 @@ class EpisodesCrud(BaseCRUD):
         episode_progress = EpisodeProgress(
             episode_id=episode_id, user_id=user_id, progress=progress, seconds=seconds)
         return await self.create(episode_progress)
+
+    async def get_history(self, user_id: UUID, page: int = 1, per_page: int = 10) -> list[HistoryDay]:
+        end = page * per_page
+        start = end - per_page
+
+        query = (
+            select(
+                EpisodeProgress,
+                Episode,
+            )
+            .join(Episode, Episode.id == EpisodeProgress.episode_id)
+            .where(EpisodeProgress.user_id == user_id)
+            .order_by(EpisodeProgress.updated_at.desc())
+            .options(selectinload(Episode.title), selectinload(Episode.links))
+            .slice(start, end)
+        )
+        query = await self.db.execute(query)
+        episodes = query.all()
+        history = {}
+        for episode in episodes:
+            date = episode[0].updated_at.date()
+            if date not in history:
+                history[date] = []
+            episode_progress = TitleEpisode.model_validate(
+                episode[1], from_attributes=True)
+            episode_progress.progress = episode[0].progress
+            episode_progress.seconds = episode[0].seconds
+            history[date].append(episode_progress)
+        return [HistoryDay(date=date, episodes=reversed(episodes)) for date, episodes in history.items()]

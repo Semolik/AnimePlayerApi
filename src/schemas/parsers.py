@@ -3,6 +3,12 @@ from typing import Literal
 import uuid
 from pydantic import BaseModel, validator
 from src.core.config import settings
+month_names = [
+    "января", "февраля", "марта",
+    "апреля", "мая", "июня",
+    "июля", "августа", "сентября",
+    "октября", "ноября", "декабря"
+]
 
 
 class BaseTitleInfo(BaseModel):
@@ -134,11 +140,10 @@ class Episode(BaseModel):
     progress: int = 0
     seconds: int = 0
     number: int
-    links: list[ParsedLink]
     is_m3u8: bool = False
     image_url: str | None = None
     duration: int | None = None
-
+    links: list[ParsedLink] = []
     duration_label: str | None = None
 
     @validator("duration_label", always=True)
@@ -149,6 +154,9 @@ class Episode(BaseModel):
         if duration:
             return f"{duration // 60} мин."
         return None
+
+    class Config:
+        from_attributes = True
 
 
 class TitleEpisodes(BaseModel):
@@ -191,6 +199,25 @@ class Title(TitleShort):
 class ParserInfo(BaseModel):
     id: str
     name: str
+
+    class Config:
+        from_attributes = True
+
+
+class HistoryDay(BaseModel):
+    date: datetime
+    date_label: str | None = None
+    episodes: list[TitleEpisode]
+
+    @validator("date_label", always=True)
+    def date_label_validator(cls, v, values):
+        if v:
+            return v
+        date = values.get("date")
+        date_label = f"{date.day} {month_names[date.month - 1]}"
+        if date.year != datetime.now().year:
+            date_label += f" {date.year}"
+        return date_label
 
     class Config:
         from_attributes = True
