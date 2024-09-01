@@ -90,7 +90,14 @@ async def set_episode_progress(episode_id: UUID, progress: int = Query(..., ge=0
     if db_episode.duration and time > db_episode.duration:
         raise HTTPException(
             status_code=400, detail="Time can't be more than episode duration.")
-    await EpisodesCrud(db).set_episode_progress(episode_id=db_episode.id, user_id=current_user.id, progress=progress, seconds=time)
+    if progress > 95:
+        next_episode = await EpisodesCrud(db).get_next_episode(
+            title_id=db_episode.title_id, number=db_episode.number)
+        if next_episode:
+            await EpisodesCrud(db).update_current_episode(
+                current_episode=current_episode, episode_id=next_episode.id)
+    else:
+        await EpisodesCrud(db).set_episode_progress(episode_id=db_episode.id, user_id=current_user.id, progress=progress, seconds=time)
 
 
 @api_router.delete("/{episode_id}/progress", response_model=None, status_code=204)
