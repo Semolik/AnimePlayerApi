@@ -154,9 +154,9 @@ class EpisodesCrud(BaseCRUD):
                 history[date] = []
             if not episode[1].image_url:
                 episode[1].image_url = episode[1].title.image_url
-            episode = TitleEpisode.model_validate(
+            episode_obj = TitleEpisode.model_validate(
                 episode[1], from_attributes=True)
-            episode.progress = episode[0].progress
-            episode.seconds = episode[0].seconds
-            history[date].append(episode)
+            episode_obj.progress = episode[0].progress
+            episode_obj.seconds = episode[0].seconds
+            history[date].append(episode_obj)
         return [HistoryDay(date=date, episodes=reversed(episodes)) for date, episodes in history.items()]
