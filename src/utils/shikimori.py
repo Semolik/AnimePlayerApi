@@ -101,6 +101,7 @@ class Shikimori:
                     name
                     russian
                     score
+                    poster { mainUrl }
                 }
             }''' % page
             async with session.post(API_URL, json={

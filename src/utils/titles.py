@@ -20,14 +20,17 @@ class TitlesService:
         titles_objs = []
         while page < self.retries:
             titles_page = await Shikimori(service).get_popular_ongoings(page)
-            for title in titles_page:
-                linked_titles = await TitlesCrud(self.db).get_titles_by_shikimori_id(shikimori_id=int(title['id']))
+            for shikimori_title in titles_page:
+                linked_titles = await TitlesCrud(self.db).get_titles_by_shikimori_id(shikimori_id=int(shikimori_title['id']))
                 if linked_titles:
-                    title_obj = SearchTitle.model_validate(
-                        linked_titles[0], from_attributes=True)
-                    title_obj.on_other_parsers = [TitleShortLink.model_validate(
-                        linked, from_attributes=True) for linked in linked_titles]
+                    title_obj = SearchTitle(
+                        image_url=shikimori_title['poster']['mainUrl'] or linked_titles[0].image_url,
+                        name=shikimori_title['russian'] or linked_titles[0].name,
+                        en_name=shikimori_title['name'] or linked_titles[0].en_name,
+                        on_other_parsers=[TitleShortLink.model_validate(
+                            linked, from_attributes=True) for linked in linked_titles]
 
+                    )
                     titles_objs.append(title_obj)
                 if len(titles_objs) >= page_size:
                     break
