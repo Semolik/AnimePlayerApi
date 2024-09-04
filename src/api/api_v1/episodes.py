@@ -94,7 +94,6 @@ async def get_next_episode(episode_id: UUID, db: AsyncSession = Depends(get_asyn
         progress=episode_progress.progress if episode_progress else 0,
         seconds=episode_progress.seconds if episode_progress else 0
     )
-    prepared_episode.image_url = title_data.image_url
     return TitleEpisode(
         **prepared_episode.model_dump(),
         title_id=next_episode.title_id,

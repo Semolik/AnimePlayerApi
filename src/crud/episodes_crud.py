@@ -152,8 +152,7 @@ class EpisodesCrud(BaseCRUD):
             date = episode[0].updated_at.date()
             if date not in history:
                 history[date] = []
-            if not episode[1].image_url:
-                episode[1].image_url = episode[1].title.image_url
+
             episode_obj = TitleEpisode.model_validate(
                 episode[1], from_attributes=True)
             episode_obj.progress = episode[0].progress

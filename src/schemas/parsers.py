@@ -170,7 +170,16 @@ class TitleEpisodes(BaseModel):
 class TitleEpisode(Episode):
     title_id: uuid.UUID
     title: TitleShort
-    image_url: str
+    image_url: str | None = None
+
+    @validator("image_url", always=True)
+    def image_url_validator(cls, v, values):
+        if v:
+            return v
+        title = values.get("title")
+        if title:
+            return title.image_url
+        return None
 
     class Config:
         from_attributes = True
