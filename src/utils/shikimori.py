@@ -96,7 +96,7 @@ class Shikimori:
             timeout=self.timeout
         ) as session:
             query = '''{
-                animes(limit: 10, status: "ongoing", order: popularity, page: %s) {
+                animes(limit: 15, status: "ongoing", order: popularity, page: %s) {
                     id
                     name
                     russian
