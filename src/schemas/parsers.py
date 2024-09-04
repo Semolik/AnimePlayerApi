@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 import uuid
-from pydantic import BaseModel, validator
+from pydantic import BaseModel,  model_validator, validator
 from src.core.config import settings
 month_names = [
     "января", "февраля", "марта",
@@ -170,16 +170,14 @@ class TitleEpisodes(BaseModel):
 class TitleEpisode(Episode):
     title_id: uuid.UUID
     title: TitleShort
-    image_url: str | None = None
+    image_url: str
 
-    @validator("image_url", always=True)
-    def image_url_validator(cls, v, values):
-        if v:
-            return v
-        title = values.get("title")
-        if title:
-            return title.image_url
-        return None
+    @model_validator(mode='before')
+    def image_url_validator(self):
+        print(self.title.image_url)
+        if not self.image_url:
+            self.image_url = self.title.image_url
+        return self
 
     class Config:
         from_attributes = True
