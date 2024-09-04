@@ -4,6 +4,7 @@ from fastapi import BackgroundTasks
 from src.schemas.parsers import ParsedTitle, ShikimoriTitle
 from src.redis.services import CacheService
 import aiohttp
+
 API_URL = "https://shikimori.one/api/graphql"
 anime_schema = """
 {
@@ -86,3 +87,26 @@ class Shikimori:
                 background_tasks.add_task(
                     self.update_shikimori_title, title_id)
         return title
+
+    async def get_popular_ongoings(self, page: int):
+        cached = await self.service.get_popular_ongoings(page)
+        if cached:
+            return cached
+        async with aiohttp.ClientSession(
+            timeout=self.timeout
+        ) as session:
+            query = '''{
+                animes(limit: 10, status: "ongoing", order: popularity, page: %s) {
+                    id
+                    name
+                    russian
+                    score
+                }
+            }''' % page
+            async with session.post(API_URL, json={
+                "query": query
+            }) as response:
+                data = await response.json()
+                data = data['data']['animes']
+                await self.service.set_popular_ongoings(page, data)
+                return data

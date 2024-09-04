@@ -6,6 +6,7 @@ from src.schemas.parsers import SearchTitle, TitleEpisodes, FavoriteTitle, Title
 from src.parsers import parsers_dict
 from src.users_controller import optional_current_user, current_active_user, current_superuser
 from src.worker import get_episodes_duration
+from src.utils.titles import TitlesService
 api_router = APIRouter(prefix="/titles", tags=["titles"])
 
 
@@ -44,6 +45,11 @@ async def get_titles_stats(db: AsyncSession = Depends(get_async_session), curren
     return {
         'count': await TitlesCrud(db).get_titles_count()
     }
+
+
+@api_router.get("/popular", response_model=list[SearchTitle])
+async def get_popular_titles(db: AsyncSession = Depends(get_async_session)):
+    return await TitlesService(db).get_popular_titles()
 
 
 @api_router.get("/{title_id}", response_model=Title)

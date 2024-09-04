@@ -114,6 +114,10 @@ class TitlesCrud(BaseCRUD):
         )
         return (await self.db.execute(query)).scalars().all()
 
+    async def get_titles_by_shikimori_id(self, shikimori_id: int) -> list[Title]:
+        query = select(Title).where(Title.shikimori_id == shikimori_id)
+        return (await self.db.execute(query)).scalars().all()
+
     async def get_favorite_title(self, title_id: UUID, user_id: UUID) -> FavoriteTitle:
         query = select(FavoriteTitle).where(
             FavoriteTitle.title_id == title_id, FavoriteTitle.user_id == user_id)

@@ -17,7 +17,6 @@ from src.models.users import User as UserModel
 from src.utils.shikimori import Shikimori
 from src.core.config import settings
 from abc import ABC, abstractmethod
-from src.db.session import get_async_session_context
 
 
 @dataclass

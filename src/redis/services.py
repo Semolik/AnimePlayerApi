@@ -96,3 +96,11 @@ class CacheService:
 
     async def set_link_by_hash(self, hash: str, link: str):
         return await self._redis.set(f"link:{hash}", link)
+
+    async def get_popular_ongoings(self, page: int):
+        data = await self._redis.get(f"popular_ongoings:{page}")
+        if data:
+            return json.loads(data)
+
+    async def set_popular_ongoings(self, page: int, data: dict):
+        return await self._redis.set(f"popular_ongoings:{page}", json.dumps(data), ex=60*60*24)
