@@ -302,7 +302,6 @@ class Parser(ABC):
         related_link = await TitlesCrud(db).get_related_link_by_title_id(title_id=title_id)
         if not related_link:
             related_link = await TitlesCrud(db).create_related_link()
-        related_titles_objs = []
         loop = asyncio.get_event_loop()
 
         async def create_title(title_link: LinkParsedTitle):
@@ -323,10 +322,8 @@ class Parser(ABC):
                 continue
             related = await TitlesCrud(db).get_related_title(title_id=existing_title.id, link_id=related_link.id)
             if not related:
-                related = await TitlesCrud(db).create_related_title(title_id=existing_title.id, link_id=related_link.id)
-            related_titles_objs.append(
-                TitleShort.model_validate(existing_title))
-        return related_titles_objs
+                await TitlesCrud(db).create_related_title(title_id=existing_title.id, link_id=related_link.id)
+        return await TitlesCrud(db).get_related_titles_by_link_id(link_id=related_link.id)
 
     async def _prepare_titles(self, titles_page: ParsedTitlesPage, db: AsyncSession, background_tasks: BackgroundTasks) -> TitlesPage:
         db_titles = []

@@ -80,6 +80,11 @@ class TitlesCrud(BaseCRUD):
     async def create_related_link(self) -> RelatedLink:
         return await self.create(RelatedLink())
 
+    async def get_related_titles_by_link_id(self, link_id: UUID) -> list[RelatedTitle]:
+        query = select(Title).join(RelatedTitle, Title.id == RelatedTitle.title_id).where(
+            RelatedTitle.link_id == link_id)
+        return (await self.db.execute(query)).scalars().all()
+
     async def create_related_title(self, title_id: UUID, link_id: UUID) -> RelatedTitle:
         related_title = RelatedTitle(title_id=title_id, link_id=link_id)
         return await self.create(related_title)
