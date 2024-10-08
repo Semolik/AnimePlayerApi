@@ -118,9 +118,12 @@ async def update_parser(parser: Parser):
     service = await parser.get_service()
     async with get_async_session_context() as session:
         for i in range(1, parser.main_pages_count+1):
-            titles = await parser.update_titles(page=i, service=service, raise_error=False)
-            for title in titles:
-                db_title = await TitlesCrud(session).get_title_by_id(title.id)
+            titles_page = await parser.update_titles(page=i, service=service, raise_error=False)
+            titles_page = await parser._prepare_titles(
+                titles_page=titles_page, db=session, background_tasks=None)
+            for title in titles_page.titles:
+                print(title)
+                db_title = await TitlesCrud(session).get_title_by_id(title_id=title.id)
                 if not db_title.shikimori_fetched:
                     await fetch_shikimori(parsed_title=title, db_title=db_title, service=service, db=session)
                     await asyncio.sleep(5)
