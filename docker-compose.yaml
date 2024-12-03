@@ -47,7 +47,7 @@ services:
     build: .
     volumes:
       - .:/usr/src
-    command: celery -A src.worker.celery worker
+    command: celery -A src.worker.celery worker  --max-memory-per-child=1000000
     env_file:
       - .env
     environment:
