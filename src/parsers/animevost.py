@@ -11,7 +11,7 @@ from typing import List
 
 
 API_URL = "https://api.animetop.info/v1"
-WEBSITE_URL = "https://v4.vost.pw"
+WEBSITE_URL = "https://v5.vost.pw"
 
 kinds = {
     "ТВ": "tv",
