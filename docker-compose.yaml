@@ -36,7 +36,7 @@ services:
     environment:
       - REDIS_HOST=redis
       - PYTHONPATH=/usr/src
-    command: alembic upgrade head
+    command: [ "/bin/sh", "-c", "if [ -L ./db-data ]; then alembic upgrade head; else alembic stamp head; fi" ]
     depends_on:
       database:
         condition: service_healthy
