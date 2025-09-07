@@ -22,6 +22,9 @@ services:
       - .:/usr/src
       - ./content:/content
     restart: always
+    logging:
+      options:
+        max-size: 50m
 
   redis:
     image: redis:latest
@@ -62,6 +65,9 @@ services:
       migration:
         condition: service_completed_successfully
     restart: always
+    logging:
+      options:
+        max-size: 50m
 
   database:
     image: library/postgres:alpine
