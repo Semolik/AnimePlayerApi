@@ -13,7 +13,7 @@ from src.crud.genres_crud import GenresCrud
 from typing import List
 import hashlib
 from src.db.session import get_async_session_context
-WEBSITE_URL = "https://anidub.world"
+WEBSITE_URL = "https://anidub.org"
 API_URL = "https://isekai.anidub.fun"
 LINK_SPLITTER = "~"
 
